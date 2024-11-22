@@ -10,11 +10,13 @@ Current simplifications:
 	- No boosted rent cost for sets (including railroads & utilities)
 	- Mortgaging just sells the property rather than actual mortgage
 	- Bankruptcy just gives everything back to the bank
+	- No trading
 
 Current Player-Controlled Decisions:
 	- Stay in jail or pay to leave
 	- Buying a property
 	- What to do to avoid bankruptcy (mortgaging)
+	- Auctions
 """
 
 #--Player Functions(will import from player controller)--
@@ -224,7 +226,7 @@ def turn(player, board, doubles_num=0):
 				if player.money > square.buy_cost:
 					buy_decision(player, square)
 				else:
-					pass #This is where the auction would happen
+					auction_trigger(player, square)
 			else:
 				#TODO: Should have a check for a complete set
 				if square.name in ("Electric Company", "Water Works"):
@@ -248,6 +250,27 @@ def player_bankruptcy(player):
 		players.remove(player)
 	except: #Sometimes this excepts when it triggers remove twice, can just ignore it
 		pass
+
+#Trigger for an auction
+def auction_trigger(player, property):
+	players_in = players.copy()
+	start = players_in.index(player)
+	players_in = players_in[start:] + players_in[:start]
+	bid = 10
+	while True:
+		for i in players_in:
+			prev_bid = bid
+			bid = Basic_Player_Controller.auction_decision(i, property, bid)
+			if bid == prev_bid:
+				players_in.remove(i)
+		if len(players_in) == 1:
+			#The last player in buys here
+			player.money -= bid
+			player.properties.append(property)
+			property.owned_by = player
+			break
+
+
 
 #------------DEBUG FUNCTIONS---------------
 #Shows current board state
@@ -274,12 +297,17 @@ def print_bank(board):
 if __name__ == "__main__":
 	global board, players
 	board, players = initialize_game()
+	turns = 0
+	rounds = 0
 
-	#Runs until end_game gets triggered
-	while (True):
+	#Runs until the end of the game gets triggered
+	while True:
+		rounds += 1
 		#Goes through the player order for turns
 		for i in players:
+			turns += 1
 			turn(i, board)
 		if len(players) <= 1:
-			print("The winner is: " + str(players[0]))
+			print(f"The winner is: {players[0].name}")
+			print(f"This game took: {turns} turns over {rounds} rounds")
 			break
