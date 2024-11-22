@@ -1,5 +1,5 @@
 import random
-import Basic_Player_Controller
+from Controllers import Basic_Player_Controller
 
 """
 Current simplifications:
