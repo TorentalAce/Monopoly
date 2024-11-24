@@ -4,9 +4,10 @@ import monopoly_sim as ms
 The basic controller will make very bare-bones decisions.
 
 Jail - Always pay to leave (unless you would need to mortgage)
-Buying - Always purchase a property if able
-Mortgage - Sell the least valuable properties first
+Buying - Always purchase a property if able, always purchases houses if able to
+Mortgage - Sell the least valuable properties first, never voluntarily sell
 Auction - Bet the max bet up to the property's original price, then leave
+Trading - Will never trade
 """
 
 #Returns True if player is bankrupt
@@ -25,14 +26,16 @@ def jail_decision(player):
 			player.turns_in_jail += 1
 	return False
 
-
-def buy_decision(player, property):
-	if player.money > property.buy_cost:
-		player.money -= property.buy_cost
-		player.properties.append(property)
-		property.owned_by = player
-	else:
-		auction_decision(player, property, 10) #This won't trigger but just in case
+#Will never have both property and group have values
+def buy_decision(player, property=None, group=None):
+	if property:
+		if player.money > property.buy_cost:
+			ms.buying_handler(player, property, property.buy_cost)
+		else:
+			auction_decision(player, property, 10) #This won't trigger but just in case
+	elif group:
+		pass
+		#while True:
 
 #Helper function for mortgage
 def find_cheapest(properties):
@@ -45,8 +48,11 @@ def find_cheapest(properties):
 				i = cheapest_property
 	return cheapest_property
 
-#Returns True if player is bankrupt
-def mortgage_decision(player, deficit):
+#Returns True if player is bankrupt, will never voluntarily sell so if forced is false do nothing
+def mortgage_decision(player, deficit, forced=False):
+	if not forced:
+		return False
+
 	if len(player.properties) == 0:
 		return True
 	elif deficit < 0:
@@ -69,3 +75,7 @@ def auction_decision(player, property, bid):
 	elif bid + 100 < player.money:
 		bid += 100
 	return bid
+
+#Will never trade
+def trading_decision(player):
+	pass

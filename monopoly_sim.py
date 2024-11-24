@@ -6,15 +6,13 @@ Current simplifications:
 	- No chance/cc cards
 	- No house/hotel building
 	- Mortgage is only calculated by getting/purchasing for 1/2 of cost
-	- No boosted rent cost for sets (including railroads & utilities, 
-	groups are implented tho so this is next step)
 	- Mortgaging just sells the property rather than actual mortgage
 	- Bankruptcy just gives everything back to the bank
 
 Current Player-Controlled Decisions:
 	- Stay in jail or pay to leave
 	- Buying a property
-	- What to do to avoid bankruptcy (mortgaging)
+	- Mortgaging (both forced and voluntary)
 	- Auctions
 	- Trading
 
@@ -24,17 +22,29 @@ Known Errors:
 	- Bankruptcy sometimes tries to remove a player not in the player list
 """
 
-#--Player Functions(will import from player controller)--
+#--Player Functions (defined here to change controllers easily)--
 def jail_decision(player):
+	#Will return True if player is bankrupt
 	if Basic_Player_Controller.jail_decision(player):
 		player_bankruptcy(player)
 
-def buy_decision(player, property):
-	Basic_Player_Controller.buy_decision(player, property)
+def buy_decision(player, property=None, group=None):
+	#Returns nothing
+	Basic_Player_Controller.buy_decision(player, property, group)
 
-def mortgage_decision(player, deficit):
-	if Basic_Player_Controller.mortgage_decision(player, deficit):
+def mortgage_decision(player, deficit, forced=False):
+	#Returns True if player is bankrupt
+	if Basic_Player_Controller.mortgage_decision(player, deficit, forced):
 		player_bankruptcy(player)
+
+def auction_decision(player, property, bid):
+	#Returns the bid the player is making, just returns the inputed bid if no bid is made
+	return Basic_Player_Controller.auction_decision(i, property, bid)
+
+#This one will end up having two decisions within it on the controller-side,
+#one for who to trade with and the other for what to trade
+def trading_decision(player):
+	Basic_Player_Controller.trading_decision(player)
 
 #-----------CLASS DEFINITIONS------------
 
@@ -44,7 +54,7 @@ class grouping:
 		self.properties = []
 		self.all_owned = False 
 		#This will need to be updated (or checked) whenever a property is bought/sold/traded
-		#Bought is handled in buying_handler, sold is handled in player.sold, trading not yet implemented
+		#Bought is handled in buying_handler, sold is handled in player.sell, trading not yet implemented
 
 	def owned_check(self, player):
 		for prop in self.properties:
@@ -240,7 +250,7 @@ def turn(player, board, doubles_num=0):
 			if player.money > 200:
 				player.money -= 200
 			else:
-				mortgage_decision(player, 200 - player.money)
+				mortgage_decision(player, 200 - player.money, True)
 		case "Go To Jail":
 			player.goToJail()
 			doubles = False
@@ -248,30 +258,47 @@ def turn(player, board, doubles_num=0):
 			if player.money > 100:
 				player.money -= 100
 			else:
-				mortgage_decision(player, 100 - player.money)
+				mortgage_decision(player, 100 - player.money, True)
 		case x if x in ("Empty Square", "Jail"):
 			pass
 		case _: #This one is all the properties basically
 			if not square.owned_by:
 				if player.money > square.buy_cost:
-					buy_decision(player, square)
+					buy_decision(player=player, property=square)
 				else:
 					auction_trigger(player, square)
-			else:
-				#TODO: Should have a check for a complete set
-				if square.name in ("Electric Company", "Water Works"):
-					if board[12].owned_by == board[28].owned_by:
+			elif square.owned_by != player:
+				if square.group.name == "Utility":
+					if square.group.all_owned:
 						rent_cost = (roll()[0]) * 10
 					else:
 						rent_cost = (roll()[0]) * 4
+				elif square.group.name == "Railroad":
+					rr_owned = 0
+					for i in square.group.properties:
+						if i.owned_by == square.owned_by:
+							rr_owned += 1
+					rent_cost = 25 * (2**(rr_owned-1))
 				else:
-					rent_cost = square.rent_cost
+					if square.group.all_owned: #A check for houses will have to be in here
+						rent_cost = square.rent_cost*2
+					else:
+						rent_cost = square.rent_cost
 
 				if player.money > rent_cost:
 					player.money -= rent_cost
 					square.owned_by.money += rent_cost
 				else:
-					mortgage_decision(player, rent_cost - player.money)
+					mortgage_decision(player, rent_cost - player.money, True)
+
+	#At this point decisions can be made about buying houses, selling properties/bldgs, and trading
+	mortgage_decision(player, -1)
+
+	trading_decision(player)
+
+	for i in player.properties:
+		if i.group.all_owned:
+			buy_decision(player=player, group=i.group)
 
 	if doubles:
 		turn(player, board, doubles_num+1)
@@ -293,7 +320,7 @@ def auction_trigger(player, property):
 	while True:
 		for i in players_in:
 			prev_bid = bid
-			bid = Basic_Player_Controller.auction_decision(i, property, bid)
+			bid = auction_decision(i, property, bid)
 			if bid == prev_bid:
 				players_in.remove(i)
 		if len(players_in) == 1:
