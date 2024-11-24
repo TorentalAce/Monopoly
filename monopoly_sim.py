@@ -25,9 +25,8 @@ Known Errors:
 
 #--Player Functions (defined here to change controllers easily)--
 def jail_decision(player):
-	#Will return True if player is bankrupt
-	if Basic_Player_Controller.jail_decision(player):
-		player_bankruptcy(player)
+	#True if leaving, false if rolling
+	return Basic_Player_Controller.jail_decision(player)
 
 def buy_decision(player, property=None, group=None):
 	#Returns nothing
@@ -361,6 +360,19 @@ def even_buy_check(group):
 				properties_available.append(property)
 
 	return properties_available
+
+def jail_handler(player):
+	if jail_decision(player):
+		player.money -= 50
+		player.leaveJail()
+	else:
+		if roll()[1]:
+			player.leaveJail()
+		elif player.turns_in_jail == 2:
+			mortgage_decision(player, 50 - player.money)
+			player.leaveJail()
+		else: 
+			player.turns_in_jail += 1
 
 #------------DEBUG FUNCTIONS---------------
 #Shows current board state

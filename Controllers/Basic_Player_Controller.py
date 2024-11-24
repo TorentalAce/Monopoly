@@ -10,21 +10,12 @@ Auction - Bet the max bet up to the property's original price, then leave
 Trading - Will never trade
 """
 
-#Returns True if player is bankrupt
+#Returns True for getting out of jail, false for rolling
 def jail_decision(player):
 	if player.money > 50:
-		player.money -= 50
-		player.leaveJail()
+		return True
 	else:
-		if ms.roll()[1]:
-			player.leaveJail()
-		elif player.turns_in_jail == 2:
-			if mortgage_decision(player, 50 - player.money):
-				return True
-			player.leaveJail()
-		else: 
-			player.turns_in_jail += 1
-	return False
+		return False
 
 #Will never have both property and group have values
 def buy_decision(player, property=None, group=None):
