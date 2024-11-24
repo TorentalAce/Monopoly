@@ -4,10 +4,11 @@ from Controllers import Basic_Player_Controller
 """
 Current simplifications:
 	- No chance/cc cards
-	- No house/hotel building
-	- Mortgage is only calculated by getting/purchasing for 1/2 of cost
 	- Mortgaging just sells the property rather than actual mortgage
+		- (Cant buy back either)
 	- Bankruptcy just gives everything back to the bank
+	- Unlimited houses/hotels (no bank limit)
+	- Cant sell houses (and no check on houses before selling property)
 
 Current Player-Controlled Decisions:
 	- Stay in jail or pay to leave
@@ -49,10 +50,11 @@ def trading_decision(player):
 #-----------CLASS DEFINITIONS------------
 
 class grouping:
-	def __init__(self, name="", properties=[]):
+	def __init__(self, name="", properties=[], house_cost=0):
 		self.name = name
 		self.properties = []
 		self.all_owned = False 
+		self.house_cost = house_cost
 		#This will need to be updated (or checked) whenever a property is bought/sold/traded
 		#Bought is handled in buying_handler, sold is handled in player.sell, trading not yet implemented
 
@@ -65,13 +67,15 @@ class grouping:
 
 #General class for each property
 class property:
-	def __init__(self, name="", buy_cost=0, rent_cost=0, group=None):
+	def __init__(self, name="", buy_cost=0, rent_cost=0, group=None, housing=[]):
 		self.name = name
 		self.buy_cost = buy_cost
 		self.rent_cost = rent_cost
 		self.owned_by = None
 		self.mortgaged = False
 		self.group = group
+		self.houses = 0
+		self.housing = housing
 		if group:
 			group.properties.append(self)
 
@@ -120,83 +124,83 @@ class player:
 
 #Returns the proper property info for each board position
 def initialize_square(position):
-	brown = grouping(name="Brown")
-	light_blue = grouping(name="Light Blue")
-	pink = grouping(name="Pink")
-	orange = grouping(name="Orange")
-	red = grouping(name="Red")
-	yellow = grouping(name="Yellow")
-	green = grouping(name="Green")
-	blue = grouping(name="Blue")
+	brown = grouping(name="Brown", house_cost=50)
+	light_blue = grouping(name="Light Blue", house_cost=50)
+	pink = grouping(name="Pink", house_cost=100)
+	orange = grouping(name="Orange", house_cost=100)
+	red = grouping(name="Red", house_cost=150)
+	yellow = grouping(name="Yellow", house_cost=150)
+	green = grouping(name="Green", house_cost=200)
+	blue = grouping(name="Blue", house_cost=200)
 	railroad = grouping(name="Railroad")
 	utility = grouping(name="Utility")
 	match position:
 		case 0:
 			return property(name="Go")
 		case 1:
-			return property(name="Mediteranean Avenue", buy_cost=60, rent_cost=2, group=brown)
+			return property(name="Mediteranean Avenue", buy_cost=60, rent_cost=2, group=brown, housing=[10, 30, 90, 160, 250])
 		case 3:
-			return property(name="Baltic Avenue", buy_cost=60, rent_cost=4, group=brown)
+			return property(name="Baltic Avenue", buy_cost=60, rent_cost=4, group=brown, housing=[20, 60, 180, 320, 450])
 		case 4:
 			return property(name="Income Tax")
 		case 5:
 			return property(name="Reading Railroad", buy_cost=200, rent_cost=25, group=railroad)
 		case 6:
-			return property(name="Oriental Avenue", buy_cost=100, rent_cost=6, group=light_blue)
+			return property(name="Oriental Avenue", buy_cost=100, rent_cost=6, group=light_blue, housing=[30, 90, 270, 400, 550])
 		case 8:
-			return property(name="Vermont Avenue", buy_cost=100, rent_cost=6, group=light_blue)
+			return property(name="Vermont Avenue", buy_cost=100, rent_cost=6, group=light_blue, housing=[30, 90, 270, 400, 550])
 		case 9:
-			return property(name="Conneticut Avenue", buy_cost=120, rent_cost=8, group=light_blue)
+			return property(name="Conneticut Avenue", buy_cost=120, rent_cost=8, group=light_blue, housing=[40, 100, 300, 450, 600])
 		case 10:
 			return property(name="Jail")
 		case 11:
-			return property(name="St. Charles Place", buy_cost=140, rent_cost=10, group=pink)
+			return property(name="St. Charles Place", buy_cost=140, rent_cost=10, group=pink, housing=[50, 150, 450, 625, 750])
 		case 12:
 			return property(name="Electric Company", buy_cost=150, group=utility)
 		case 13:
-			return property(name="States Avenue", buy_cost=200, rent_cost=10, group=pink)
+			return property(name="States Avenue", buy_cost=200, rent_cost=10, group=pink, housing=[50, 150, 450, 625, 750])
 		case 14:
-			return property(name="Virginia Avenue", buy_cost=160, rent_cost=12, group=pink)
+			return property(name="Virginia Avenue", buy_cost=160, rent_cost=12, group=pink, housing=[60, 180, 500, 700, 900])
 		case 15:
 			return property(name="Pennsylvania Railroad", buy_cost=200, rent_cost=25, group=railroad)
 		case 16:
-			return property(name="St. James Place", buy_cost=180, rent_cost=14, group=orange)
+			return property(name="St. James Place", buy_cost=180, rent_cost=14, group=orange, housing=[70, 200, 550, 700, 950])
 		case 18:
-			return property(name="Tennessee Avenue", buy_cost=180, rent_cost=14, group=orange)
+			return property(name="Tennessee Avenue", buy_cost=180, rent_cost=14, group=orange, housing=[70, 200, 550, 700, 950])
 		case 19:
-			return property(name="New York Avenue", buy_cost=180, rent_cost=16, group=orange)
+			return property(name="New York Avenue", buy_cost=180, rent_cost=16, group=orange, housing=[80, 220, 600, 800, 1000])
 		case 21:
-			return property(name="Kentucky Avenue", buy_cost=220, rent_cost=18, group=red)
+			return property(name="Kentucky Avenue", buy_cost=220, rent_cost=18, group=red, housing=[90, 250, 700, 875, 1050])
 		case 23:
-			return property(name="Indiana Avenue", buy_cost=220, rent_cost=18, group=red)
+			return property(name="Indiana Avenue", buy_cost=220, rent_cost=18, group=red, housing=[90, 250, 700, 875, 1050])
 		case 24:
-			return property(name="Illinois Avenue", buy_cost=240, rent_cost=20, group=red)
+			return property(name="Illinois Avenue", buy_cost=240, rent_cost=20, group=red, housing=[100, 300, 750, 925, 1100])
 		case 25:
 			return property(name="B. & O. Railroad", buy_cost=200, rent_cost=25, group=railroad)
 		case 26:
-			return property(name="Atlantic Avenue", buy_cost=260, rent_cost=22, group=yellow)
+			return property(name="Atlantic Avenue", buy_cost=260, rent_cost=22, group=yellow, housing=[110, 330, 800, 975, 1150])
 		case 27:
-			return property(name="Ventnor Avenue", buy_cost=260, rent_cost=22, group=yellow)
+			return property(name="Ventnor Avenue", buy_cost=260, rent_cost=22, group=yellow, housing=[110, 330, 800, 975, 1150])
 		case 28:
 			return property(name="Water Works", buy_cost=150, group=utility)
 		case 29:
-			return property(name="Marvin Gardens", buy_cost=280, rent_cost=24, group=yellow)
+			return property(name="Marvin Gardens", buy_cost=280, rent_cost=24, group=yellow, housing=[120, 360, 850, 1025, 1200])
 		case 30:
 			return property(name="Go To Jail")
 		case 31:
-			return property(name="Pacific Avenue", buy_cost=300, rent_cost=26, group=green)
+			return property(name="Pacific Avenue", buy_cost=300, rent_cost=26, group=green, housing=[130, 390, 900, 1100, 1275])
 		case 32:
-			return property(name="North Carolina Avenue", buy_cost=300, rent_cost=26, group=green)
+			return property(name="North Carolina Avenue", buy_cost=300, rent_cost=26, group=green, housing=[130, 390, 900, 1100, 1275])
 		case 34:
-			return property(name="Pennsylvania Avenue", buy_cost=320, rent_cost=28, group=green)
+			return property(name="Pennsylvania Avenue", buy_cost=320, rent_cost=28, group=green, housing=[150, 450, 1000, 1200, 1400])
 		case 35:
 			return property(name="Short Line", buy_cost=200, rent_cost=25, group=railroad)
 		case 37:
-			return property(name="Park Place", buy_cost=350, rent_cost=35, group=blue)
+			return property(name="Park Place", buy_cost=350, rent_cost=35, group=blue, housing=[175, 500, 1100, 1300, 1500])
 		case 38:
 			return property(name="Luxary Tax")
 		case 39:
-			return property(name="Boardwalk", buy_cost=400, rent_cost=50, group=blue)
+			return property(name="Boardwalk", buy_cost=400, rent_cost=50, group=blue, housing=[200, 600, 1400, 1700, 2000])
 		#Default case used as placeholder for free parking, chance, & cc
 		case _:
 			return property(name="Empty Square")
@@ -280,8 +284,11 @@ def turn(player, board, doubles_num=0):
 							rr_owned += 1
 					rent_cost = 25 * (2**(rr_owned-1))
 				else:
-					if square.group.all_owned: #A check for houses will have to be in here
-						rent_cost = square.rent_cost*2
+					if square.group.all_owned:
+						if square.houses == 0:
+							rent_cost = square.rent_cost*2
+						else:
+							rent_cost = square.housing[square.houses-1]
 					else:
 						rent_cost = square.rent_cost
 
@@ -330,12 +337,30 @@ def auction_trigger(player, property):
 
 #Handles buying a property (for both normal buying and auctions)
 #Also checks to see if the player now owns the entire group
-def buying_handler(player, property, cost):
-	player.money -= cost
-	player.properties.append(property)
-	property.owned_by = player
-	property.group.owned_check(player)
+def buying_handler(player, property, cost, house_buy=False):
+	if house_buy:
+		player.money -= cost
+		property.houses += 1
+	else:
+		player.money -= cost
+		player.properties.append(property)
+		property.owned_by = player
+		property.group.owned_check(player)
 
+#Helper function since have to buy houses evenly
+def even_buy_check(group):
+	lowest_houses = 5
+	properties_available = []
+	
+	for property in group.properties:
+		if property.houses < 5:
+			if property.houses < lowest_houses:
+				lowest_houses = property.houses
+				properties_available = [property]
+			elif property.houses == lowest_houses:
+				properties_available.append(property)
+
+	return properties_available
 
 #------------DEBUG FUNCTIONS---------------
 #Shows current board state

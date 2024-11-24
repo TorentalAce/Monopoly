@@ -34,8 +34,17 @@ def buy_decision(player, property=None, group=None):
 		else:
 			auction_decision(player, property, 10) #This won't trigger but just in case
 	elif group:
-		pass
-		#while True:
+		while True:
+			properties_available = ms.even_buy_check(group)
+			bought = False
+
+			for property in properties_available:
+				if property.group.house_cost < player.money:
+					ms.buying_handler(player, property, property.group.house_cost, True)
+					bought = True
+
+			if not bought:
+				break
 
 #Helper function for mortgage
 def find_cheapest(properties):
