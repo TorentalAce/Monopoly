@@ -12,10 +12,7 @@ Trading - Will never trade
 
 #Returns True for getting out of jail, false for rolling
 def jail_decision(player):
-	if player.money > 50:
-		return True
-	else:
-		return False
+	return player.money > 50
 
 #Will never have both property and group have values
 def buy_decision(player, property=None, group=None):
@@ -37,30 +34,20 @@ def buy_decision(player, property=None, group=None):
 			if not bought:
 				break
 
-#Helper function for mortgage
-def find_cheapest(properties):
-	cheapest_property = None
-	for i in properties:
-		if not cheapest_property:
-			cheapest_property = i
-		else:
-			if i.buy_cost < cheapest_property.buy_cost:
-				i = cheapest_property
-	return cheapest_property
-
 #Returns True if player is bankrupt, will never voluntarily sell so if forced is false do nothing
 def mortgage_decision(player, deficit, forced=False):
 	if not forced:
 		return False
 
 	if len(player.properties) == 0:
+		print(deficit)
 		return True
 	elif deficit < 0:
 		return False
 	else:
-		player.sell(find_cheapest(player.properties))
+		player.sell(min(player.properties, key=lambda x: x.buy_cost))
 		if player.money <= deficit:
-			mortgage_decision(player, deficit)
+			return mortgage_decision(player, deficit, True)
 		else:
 			return False
 

@@ -16,11 +16,6 @@ Current Player-Controlled Decisions:
 	- Mortgaging (both forced and voluntary)
 	- Auctions
 	- Trading
-
-Known Errors:
-	- Auction sometimes gives an error where the player who triggered the auction
-	is not in the players list
-	- Bankruptcy sometimes tries to remove a player not in the player list
 """
 
 #--Player Functions (defined here to change controllers easily)--
@@ -118,6 +113,7 @@ class player:
 			self.sell(i)
 		self.money = 0
 		self.bankrupt = True
+		players.remove(self)
 
 #------------GAME FUNCTIONS---------------
 
@@ -277,10 +273,7 @@ def turn(player, board, doubles_num=0):
 					else:
 						rent_cost = (roll()[0]) * 4
 				elif square.group.name == "Railroad":
-					rr_owned = 0
-					for i in square.group.properties:
-						if i.owned_by == square.owned_by:
-							rr_owned += 1
+					rr_owned = sum(1 for i in square.group.properties if i.owned_by == square.owned_by)
 					rent_cost = 25 * (2**(rr_owned-1))
 				else:
 					if square.group.all_owned:
@@ -297,25 +290,24 @@ def turn(player, board, doubles_num=0):
 				else:
 					mortgage_decision(player, rent_cost - player.money, True)
 
-	#At this point decisions can be made about buying houses, selling properties/bldgs, and trading
-	mortgage_decision(player, -1)
+	if not player.bankrupt: #Make sure the player didnt go bankrupt above
 
-	trading_decision(player)
+		#At this point decisions can be made about buying houses, selling properties/bldgs, and trading
+		mortgage_decision(player, -1)
 
-	for i in player.properties:
-		if i.group.all_owned:
-			buy_decision(player=player, group=i.group)
+		trading_decision(player)
 
-	if doubles:
-		turn(player, board, doubles_num+1)
+		for i in player.properties:
+			if i.group.all_owned:
+				buy_decision(player=player, group=i.group)
+
+		if doubles:
+			turn(player, board, doubles_num+1)
 
 #If a player goes bankrupt (probably will handle going bankrupt to another person here)
 def player_bankruptcy(player):
+	print(player.name)
 	player.bankrupted()
-	try :
-		players.remove(player)
-	except: #Sometimes this excepts when it triggers remove twice, can just ignore it
-		pass
 
 #Trigger for an auction
 def auction_trigger(player, property):
@@ -369,7 +361,7 @@ def jail_handler(player):
 		if roll()[1]:
 			player.leaveJail()
 		elif player.turns_in_jail == 2:
-			mortgage_decision(player, 50 - player.money)
+			mortgage_decision(player, 50 - player.money, True)
 			player.leaveJail()
 		else: 
 			player.turns_in_jail += 1
