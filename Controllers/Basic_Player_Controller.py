@@ -22,6 +22,7 @@ def buy_decision(player, property=None, group=None):
 		else:
 			auction_decision(player, property, 10) #This won't trigger but just in case
 	elif group:
+		#Housing buying is currently broken
 		while True:
 			properties_available = ms.even_buy_check(group)
 			bought = False
@@ -40,7 +41,6 @@ def mortgage_decision(player, deficit, forced=False):
 		return False
 
 	if len(player.properties) == 0:
-		print(deficit)
 		return True
 	elif deficit < 0:
 		return False

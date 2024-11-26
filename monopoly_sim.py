@@ -8,7 +8,7 @@ Current simplifications:
 		- (Cant buy back either)
 	- Bankruptcy just gives everything back to the bank
 	- Unlimited houses/hotels (no bank limit)
-	- Cant sell houses (and no check on houses before selling property)
+	- Just removes all houses before selling property (no money back for them)
 
 Current Player-Controlled Decisions:
 	- Stay in jail or pay to leave
@@ -16,6 +16,15 @@ Current Player-Controlled Decisions:
 	- Mortgaging (both forced and voluntary)
 	- Auctions
 	- Trading
+
+TODO/Notes:
+	- Implement a new player attribute to track total value for an easier bankruptcy check
+		- Add 1/2 value of propertyies + houses when buying them
+		- Subtract value when selling
+		- Check the value before going through mortgages
+			- If the total player value is greater than deficit, proceed
+			- If its less, just give everything to the bank or the player that bankrupted them
+
 """
 
 #--Player Functions (defined here to change controllers easily)--
@@ -44,11 +53,11 @@ def trading_decision(player):
 #-----------CLASS DEFINITIONS------------
 
 class grouping:
-	def __init__(self, name="", properties=[], house_cost=0):
+	def __init__(self, name="", house_cost=0):
 		self.name = name
 		self.properties = []
-		self.all_owned = False 
 		self.house_cost = house_cost
+		self.all_owned = False 
 		#This will need to be updated (or checked) whenever a property is bought/sold/traded
 		#Bought is handled in buying_handler, sold is handled in player.sell, trading not yet implemented
 
@@ -74,7 +83,7 @@ class property:
 			group.properties.append(self)
 
 	def __str__(self):
-		return f"Name: {self.name}, Cost: {self.buy_cost}, Rent: {self.rent_cost}, Owned by: {self.owned_by}"
+		return f"Name: {self.name}, Cost: {self.buy_cost}, Rent: {self.rent_cost}, Owned by: {self.owned_by}, Houses: {self.houses}"
 
 #General player class, position is defined 0 - 39 (0 being go, 39 being boardwalk)
 class player:
@@ -105,6 +114,7 @@ class player:
 		self.money += property.buy_cost/2
 		property.owned_by = None
 		property.group.all_owned = False
+		property.houses = 0
 
 	def bankrupted(self):
 		#There shouldnt be properties left over on basic controller,
@@ -118,94 +128,97 @@ class player:
 #------------GAME FUNCTIONS---------------
 
 #Returns the proper property info for each board position
-def initialize_square(position):
-	brown = grouping(name="Brown", house_cost=50)
-	light_blue = grouping(name="Light Blue", house_cost=50)
-	pink = grouping(name="Pink", house_cost=100)
-	orange = grouping(name="Orange", house_cost=100)
-	red = grouping(name="Red", house_cost=150)
-	yellow = grouping(name="Yellow", house_cost=150)
-	green = grouping(name="Green", house_cost=200)
-	blue = grouping(name="Blue", house_cost=200)
-	railroad = grouping(name="Railroad")
-	utility = grouping(name="Utility")
+def initialize_square(position, groups):
 	match position:
 		case 0:
 			return property(name="Go")
 		case 1:
-			return property(name="Mediteranean Avenue", buy_cost=60, rent_cost=2, group=brown, housing=[10, 30, 90, 160, 250])
+			return property(name="Mediteranean Avenue", buy_cost=60, rent_cost=2, group=groups["brown"], housing=[10, 30, 90, 160, 250])
 		case 3:
-			return property(name="Baltic Avenue", buy_cost=60, rent_cost=4, group=brown, housing=[20, 60, 180, 320, 450])
+			return property(name="Baltic Avenue", buy_cost=60, rent_cost=4, group=groups["brown"], housing=[20, 60, 180, 320, 450])
 		case 4:
 			return property(name="Income Tax")
 		case 5:
-			return property(name="Reading Railroad", buy_cost=200, rent_cost=25, group=railroad)
+			return property(name="Reading Railroad", buy_cost=200, rent_cost=25, group=groups["railroad"])
 		case 6:
-			return property(name="Oriental Avenue", buy_cost=100, rent_cost=6, group=light_blue, housing=[30, 90, 270, 400, 550])
+			return property(name="Oriental Avenue", buy_cost=100, rent_cost=6, group=groups["light_blue"], housing=[30, 90, 270, 400, 550])
 		case 8:
-			return property(name="Vermont Avenue", buy_cost=100, rent_cost=6, group=light_blue, housing=[30, 90, 270, 400, 550])
+			return property(name="Vermont Avenue", buy_cost=100, rent_cost=6, group=groups["light_blue"], housing=[30, 90, 270, 400, 550])
 		case 9:
-			return property(name="Conneticut Avenue", buy_cost=120, rent_cost=8, group=light_blue, housing=[40, 100, 300, 450, 600])
+			return property(name="Conneticut Avenue", buy_cost=120, rent_cost=8, group=groups["light_blue"], housing=[40, 100, 300, 450, 600])
 		case 10:
 			return property(name="Jail")
 		case 11:
-			return property(name="St. Charles Place", buy_cost=140, rent_cost=10, group=pink, housing=[50, 150, 450, 625, 750])
+			return property(name="St. Charles Place", buy_cost=140, rent_cost=10, group=groups["pink"], housing=[50, 150, 450, 625, 750])
 		case 12:
-			return property(name="Electric Company", buy_cost=150, group=utility)
+			return property(name="Electric Company", buy_cost=150, group=groups["utility"])
 		case 13:
-			return property(name="States Avenue", buy_cost=200, rent_cost=10, group=pink, housing=[50, 150, 450, 625, 750])
+			return property(name="States Avenue", buy_cost=200, rent_cost=10, group=groups["pink"], housing=[50, 150, 450, 625, 750])
 		case 14:
-			return property(name="Virginia Avenue", buy_cost=160, rent_cost=12, group=pink, housing=[60, 180, 500, 700, 900])
+			return property(name="Virginia Avenue", buy_cost=160, rent_cost=12, group=groups["pink"], housing=[60, 180, 500, 700, 900])
 		case 15:
-			return property(name="Pennsylvania Railroad", buy_cost=200, rent_cost=25, group=railroad)
+			return property(name="Pennsylvania Railroad", buy_cost=200, rent_cost=25, group=groups["railroad"])
 		case 16:
-			return property(name="St. James Place", buy_cost=180, rent_cost=14, group=orange, housing=[70, 200, 550, 700, 950])
+			return property(name="St. James Place", buy_cost=180, rent_cost=14, group=groups["orange"], housing=[70, 200, 550, 700, 950])
 		case 18:
-			return property(name="Tennessee Avenue", buy_cost=180, rent_cost=14, group=orange, housing=[70, 200, 550, 700, 950])
+			return property(name="Tennessee Avenue", buy_cost=180, rent_cost=14, group=groups["orange"], housing=[70, 200, 550, 700, 950])
 		case 19:
-			return property(name="New York Avenue", buy_cost=180, rent_cost=16, group=orange, housing=[80, 220, 600, 800, 1000])
+			return property(name="New York Avenue", buy_cost=180, rent_cost=16, group=groups["orange"], housing=[80, 220, 600, 800, 1000])
 		case 21:
-			return property(name="Kentucky Avenue", buy_cost=220, rent_cost=18, group=red, housing=[90, 250, 700, 875, 1050])
+			return property(name="Kentucky Avenue", buy_cost=220, rent_cost=18, group=groups["red"], housing=[90, 250, 700, 875, 1050])
 		case 23:
-			return property(name="Indiana Avenue", buy_cost=220, rent_cost=18, group=red, housing=[90, 250, 700, 875, 1050])
+			return property(name="Indiana Avenue", buy_cost=220, rent_cost=18, group=groups["red"], housing=[90, 250, 700, 875, 1050])
 		case 24:
-			return property(name="Illinois Avenue", buy_cost=240, rent_cost=20, group=red, housing=[100, 300, 750, 925, 1100])
+			return property(name="Illinois Avenue", buy_cost=240, rent_cost=20, group=groups["red"], housing=[100, 300, 750, 925, 1100])
 		case 25:
-			return property(name="B. & O. Railroad", buy_cost=200, rent_cost=25, group=railroad)
+			return property(name="B. & O. Railroad", buy_cost=200, rent_cost=25, group=groups["railroad"])
 		case 26:
-			return property(name="Atlantic Avenue", buy_cost=260, rent_cost=22, group=yellow, housing=[110, 330, 800, 975, 1150])
+			return property(name="Atlantic Avenue", buy_cost=260, rent_cost=22, group=groups["yellow"], housing=[110, 330, 800, 975, 1150])
 		case 27:
-			return property(name="Ventnor Avenue", buy_cost=260, rent_cost=22, group=yellow, housing=[110, 330, 800, 975, 1150])
+			return property(name="Ventnor Avenue", buy_cost=260, rent_cost=22, group=groups["yellow"], housing=[110, 330, 800, 975, 1150])
 		case 28:
-			return property(name="Water Works", buy_cost=150, group=utility)
+			return property(name="Water Works", buy_cost=150, group=groups["utility"])
 		case 29:
-			return property(name="Marvin Gardens", buy_cost=280, rent_cost=24, group=yellow, housing=[120, 360, 850, 1025, 1200])
+			return property(name="Marvin Gardens", buy_cost=280, rent_cost=24, group=groups["yellow"], housing=[120, 360, 850, 1025, 1200])
 		case 30:
 			return property(name="Go To Jail")
 		case 31:
-			return property(name="Pacific Avenue", buy_cost=300, rent_cost=26, group=green, housing=[130, 390, 900, 1100, 1275])
+			return property(name="Pacific Avenue", buy_cost=300, rent_cost=26, group=groups["green"], housing=[130, 390, 900, 1100, 1275])
 		case 32:
-			return property(name="North Carolina Avenue", buy_cost=300, rent_cost=26, group=green, housing=[130, 390, 900, 1100, 1275])
+			return property(name="North Carolina Avenue", buy_cost=300, rent_cost=26, group=groups["green"], housing=[130, 390, 900, 1100, 1275])
 		case 34:
-			return property(name="Pennsylvania Avenue", buy_cost=320, rent_cost=28, group=green, housing=[150, 450, 1000, 1200, 1400])
+			return property(name="Pennsylvania Avenue", buy_cost=320, rent_cost=28, group=groups["green"], housing=[150, 450, 1000, 1200, 1400])
 		case 35:
-			return property(name="Short Line", buy_cost=200, rent_cost=25, group=railroad)
+			return property(name="Short Line", buy_cost=200, rent_cost=25, group=groups["railroad"])
 		case 37:
-			return property(name="Park Place", buy_cost=350, rent_cost=35, group=blue, housing=[175, 500, 1100, 1300, 1500])
+			return property(name="Park Place", buy_cost=350, rent_cost=35, group=groups["blue"], housing=[175, 500, 1100, 1300, 1500])
 		case 38:
 			return property(name="Luxary Tax")
 		case 39:
-			return property(name="Boardwalk", buy_cost=400, rent_cost=50, group=blue, housing=[200, 600, 1400, 1700, 2000])
+			return property(name="Boardwalk", buy_cost=400, rent_cost=50, group=groups["blue"], housing=[200, 600, 1400, 1700, 2000])
 		#Default case used as placeholder for free parking, chance, & cc
 		case _:
 			return property(name="Empty Square")
 
 #Returns the filled board state as an array
 def initialize_game():
+	groups = {
+		"brown" : grouping(name="Brown", house_cost=50),
+		"light_blue" : grouping(name="Light Blue", house_cost=50),
+		"pink" : grouping(name="Pink", house_cost=100),
+		"orange" : grouping(name="Orange", house_cost=100),
+		"red" : grouping(name="Red", house_cost=150),
+		"yellow" : grouping(name="Yellow", house_cost=150),
+		"green" : grouping(name="Green", house_cost=200),
+		"blue" : grouping(name="Blue", house_cost=200),
+		"railroad" : grouping(name="Railroad"),
+		"utility" : grouping(name="Utility")
+	}
+
 	player_names = ["Bob", "Tom", "Jerry", "Alice", "Tony", "Sam"]
 
 	for i in range(0, 40):
-		board.append(initialize_square(i))
+		board.append(initialize_square(i, groups))
 
 	init_rolls = []
 	for name in player_names:
@@ -291,14 +304,13 @@ def turn(player, board, doubles_num=0):
 					mortgage_decision(player, rent_cost - player.money, True)
 
 	if not player.bankrupt: #Make sure the player didnt go bankrupt above
-
 		#At this point decisions can be made about buying houses, selling properties/bldgs, and trading
 		mortgage_decision(player, -1)
 
 		trading_decision(player)
 
 		for i in player.properties:
-			if i.group.all_owned:
+			if i.group.all_owned and i.group.name not in ["utility", "railroad"]:
 				buy_decision(player=player, group=i.group)
 
 		if doubles:
@@ -306,7 +318,6 @@ def turn(player, board, doubles_num=0):
 
 #If a player goes bankrupt (probably will handle going bankrupt to another person here)
 def player_bankruptcy(player):
-	print(player.name)
 	player.bankrupted()
 
 #Trigger for an auction
@@ -340,16 +351,15 @@ def buying_handler(player, property, cost, house_buy=False):
 
 #Helper function since have to buy houses evenly
 def even_buy_check(group):
-	lowest_houses = 5
+	lowest_houses = 4
 	properties_available = []
 	
 	for property in group.properties:
-		if property.houses < 5:
-			if property.houses < lowest_houses:
-				lowest_houses = property.houses
-				properties_available = [property]
-			elif property.houses == lowest_houses:
-				properties_available.append(property)
+		if property.houses < lowest_houses:
+			lowest_houses = property.houses
+			properties_available = [property]
+		elif property.houses == lowest_houses:
+			properties_available.append(property)
 
 	return properties_available
 
@@ -378,7 +388,7 @@ def print_players():
 		print(str(i))
 
 #Shows all unowned properties
-def print_bank(board):
+def print_bank():
 	bank = []
 
 	for i in board:
@@ -386,6 +396,10 @@ def print_bank(board):
 			bank.append(str(i))
 
 	return bank
+
+def print_houses():
+	for prop in board:
+		print(f"Name: {prop.name}, Houses: {prop.houses}")
 
 #----------Praying things work-------------
 if __name__ == "__main__":
@@ -407,3 +421,5 @@ if __name__ == "__main__":
 			print(f"The winner is: {players[0].name}")
 			print(f"This game took: {turns} turns over {rounds} rounds")
 			break
+
+		print_houses()
