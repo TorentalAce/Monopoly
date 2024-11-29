@@ -18,13 +18,7 @@ Current Player-Controlled Decisions:
 	- Trading
 
 TODO/Notes:
-	- Implement a new player attribute to track total value for an easier bankruptcy check
-		- Add 1/2 value of propertyies + houses when buying them
-		- Subtract value when selling
-		- Check the value before going through mortgages
-			- If the total player value is greater than deficit, proceed
-			- If its less, just give everything to the bank or the player that bankrupted them
-
+	Error where the program will let the player have negative money
 """
 
 #--Player Functions (defined here to change controllers easily)--
@@ -36,10 +30,8 @@ def buy_decision(player, property=None, group=None):
 	#Returns nothing
 	Basic_Player_Controller.buy_decision(player, property, group)
 
-def mortgage_decision(player, deficit, forced=False):
-	#Returns True if player is bankrupt
-	if Basic_Player_Controller.mortgage_decision(player, deficit, forced):
-		player_bankruptcy(player)
+def mortgage_decision(player, cost, forced=False):
+	Basic_Player_Controller.mortgage_decision(player, cost, forced)
 
 def auction_decision(player, property, bid):
 	#Returns the bid the player is making, just returns the inputed bid if no bid is made
@@ -95,6 +87,7 @@ class player:
 		self.in_jail = False
 		self.turns_in_jail = 0
 		self.bankrupt = False
+		self.net_worth = 0
 
 	def __str__(self):
 		property_print = list(map(lambda x: x.name, self.properties))
@@ -111,14 +104,13 @@ class player:
 
 	def sell(self, property):
 		self.properties.remove(property)
-		self.money += property.buy_cost/2
+		self.money += (property.buy_cost/2 + property.houses * property.group.house_cost/2)
+		self.net_worth -= (property.buy_cost/2 + property.houses * property.group.house_cost/2)
 		property.owned_by = None
 		property.group.all_owned = False
 		property.houses = 0
 
 	def bankrupted(self):
-		#There shouldnt be properties left over on basic controller,
-		#But just in case
 		for i in self.properties:
 			self.sell(i)
 		self.money = 0
@@ -241,16 +233,18 @@ def roll():
 def turn(player, board, doubles_num=0):
 	#Check if the player is in jail and see what action is taken
 	if player.in_jail:
-		jail_decision(player)
-
-	movement, doubles = roll()
-	if doubles_num == 2 and doubles: #If 3 doubles were rolled in a row
-		player.goToJail()
-		doubles = False
-	else:
+		movement, doubles = jail_handler(player)
 		player.position += movement
-		if player.position >= 40:
-			player.position -= 40
+	else:
+		movement, doubles = roll()
+
+		if doubles_num == 2 and doubles: #If 3 doubles were rolled in a row
+			player.goToJail()
+			doubles = False
+		else:
+			player.position += movement
+			if player.position >= 40:
+				player.position -= 40
 
 	#Check what square was landed on and take appropriate action
 	square = board[player.position]
@@ -259,18 +253,12 @@ def turn(player, board, doubles_num=0):
 		case "Go":
 			player.money += 200
 		case "Income Tax":
-			if player.money > 200:
-				player.money -= 200
-			else:
-				mortgage_decision(player, 200 - player.money, True)
+			payment_handler(player, 200)
 		case "Go To Jail":
 			player.goToJail()
 			doubles = False
 		case "Luxary Tax":
-			if player.money > 100:
-				player.money -= 100
-			else:
-				mortgage_decision(player, 100 - player.money, True)
+			payment_handler(player, 100)
 		case x if x in ("Empty Square", "Jail"):
 			pass
 		case _: #This one is all the properties basically
@@ -297,11 +285,7 @@ def turn(player, board, doubles_num=0):
 					else:
 						rent_cost = square.rent_cost
 
-				if player.money > rent_cost:
-					player.money -= rent_cost
-					square.owned_by.money += rent_cost
-				else:
-					mortgage_decision(player, rent_cost - player.money, True)
+				payment_handler(player, rent_cost, square.owned_by)
 
 	if not player.bankrupt: #Make sure the player didnt go bankrupt above
 		#At this point decisions can be made about buying houses, selling properties/bldgs, and trading
@@ -310,15 +294,11 @@ def turn(player, board, doubles_num=0):
 		trading_decision(player)
 
 		for i in player.properties:
-			if i.group.all_owned and i.group.name not in ["utility", "railroad"]:
+			if i.group.all_owned and i.group.name not in ["Utility", "Railroad"]:
 				buy_decision(player=player, group=i.group)
 
 		if doubles:
 			turn(player, board, doubles_num+1)
-
-#If a player goes bankrupt (probably will handle going bankrupt to another person here)
-def player_bankruptcy(player):
-	player.bankrupted()
 
 #Trigger for an auction
 def auction_trigger(player, property):
@@ -330,24 +310,27 @@ def auction_trigger(player, property):
 		for i in players_in:
 			prev_bid = bid
 			bid = auction_decision(i, property, bid)
-			if bid == prev_bid:
+			if bid >= player.money or bid == prev_bid:
 				players_in.remove(i)
+				bid = prev_bid
 		if len(players_in) == 1:
 			#The last player in buys here
-			buying_handler(player, property, bid)
+			buying_handler(players_in[0], property, bid)
 			break
 
 #Handles buying a property (for both normal buying and auctions)
 #Also checks to see if the player now owns the entire group
 def buying_handler(player, property, cost, house_buy=False):
-	if house_buy:
+	if cost < player.money:
+		if house_buy:
+			property.houses += 1
+			player.net_worth += cost/2
+		else:
+			player.properties.append(property)
+			property.owned_by = player
+			property.group.owned_check(player)
+			player.net_worth += property.buy_cost/2 #Can't just use cost in case auction was called
 		player.money -= cost
-		property.houses += 1
-	else:
-		player.money -= cost
-		player.properties.append(property)
-		property.owned_by = player
-		property.group.owned_check(player)
 
 #Helper function since have to buy houses evenly
 def even_buy_check(group):
@@ -363,18 +346,36 @@ def even_buy_check(group):
 
 	return properties_available
 
+#Handles the jail stuff
 def jail_handler(player):
-	if jail_decision(player):
+	if jail_decision(player) and player.money > 50:
 		player.money -= 50
 		player.leaveJail()
+		return roll()
 	else:
 		if roll()[1]:
 			player.leaveJail()
+			return roll()[0], False
 		elif player.turns_in_jail == 2:
-			mortgage_decision(player, 50 - player.money, True)
+			payment_handler(player, 50)
 			player.leaveJail()
+			return roll()
 		else: 
 			player.turns_in_jail += 1
+			return 0, False
+
+def payment_handler(player, payment, paying=None):
+	print(player.money, payment, player.net_worth)
+
+	if player.money + player.net_worth <= payment: #Introduce bankrupted to a player here
+		player.bankrupted()
+	else:
+		if player.money <= payment:
+			mortgage_decision(player, payment, True)
+		
+		player.money -= payment
+		if paying:
+			paying.money += payment
 
 #------------DEBUG FUNCTIONS---------------
 #Shows current board state
@@ -397,6 +398,7 @@ def print_bank():
 
 	return bank
 
+#Shows how many houses each property holds
 def print_houses():
 	for prop in board:
 		print(f"Name: {prop.name}, Houses: {prop.houses}")
@@ -421,5 +423,3 @@ if __name__ == "__main__":
 			print(f"The winner is: {players[0].name}")
 			print(f"This game took: {turns} turns over {rounds} rounds")
 			break
-
-		print_houses()
