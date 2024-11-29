@@ -16,9 +16,6 @@ Current Player-Controlled Decisions:
 	- Mortgaging (both forced and voluntary)
 	- Auctions
 	- Trading
-
-TODO/Notes:
-	Error where the program will let the player have negative money
 """
 
 #--Player Functions (defined here to change controllers easily)--
