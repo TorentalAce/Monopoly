@@ -6,7 +6,6 @@ Current simplifications:
 	- No chance/cc cards
 	- Mortgaging just sells the property rather than actual mortgage
 		- (Cant buy back either)
-	- Bankruptcy just gives everything back to the bank
 	- Unlimited houses/hotels (no bank limit)
 	- Just removes all houses before selling property (no money back for them)
 
@@ -40,13 +39,11 @@ def buy_decision(player, property=None, group=None):
 
 def mortgage_decision(player, cost, forced=False): #Maybe seperate this into 2 different decisions?
 	if not forced:
-		toSell = Basic_Player_Controller.mortgage_decision(player, cost, forced)
-		for i in toSell:
+		for i in Basic_Player_Controller.mortgage_decision(player, cost, forced):
 				player.sell(i)
 	else:
 		while player.money <= cost:
-			toSell = Basic_Player_Controller.mortgage_decision(player, cost, forced)
-			for i in toSell:
+			for i in Basic_Player_Controller.mortgage_decision(player, cost, forced):
 				player.sell(i)
 
 def auction_decision(player, property, bid):
@@ -126,10 +123,19 @@ class player:
 		property.group.all_owned = False
 		property.houses = 0
 
-	def bankrupted(self):
-		for i in self.properties:
-			self.sell(i)
+	def bankrupted(self, other=None):
+		if other:
+			other.money += self.money
+			for i in self.properties:
+				other.properties.append(i)
+				i.owned_by = other
+				other.net_worth += i.buy_cost / 2
+			self.properties = []
+		else:
+			for i in self.properties:
+				self.sell(i)
 		self.money = 0
+		self.net_worth = 0
 		self.bankrupt = True
 		players.remove(self)
 
@@ -381,8 +387,8 @@ def jail_handler(player):
 			return 0, False
 
 def payment_handler(player, payment, paying=None):
-	if player.money + player.net_worth <= payment: #Introduce bankrupted to a player here
-		player.bankrupted()
+	if player.money + player.net_worth <= payment:
+		player.bankrupted(paying)
 	else:
 		if player.money <= payment:
 			mortgage_decision(player, payment, True)
@@ -417,6 +423,11 @@ def print_houses():
 	for prop in board:
 		print(f"Name: {prop.name}, Houses: {prop.houses}")
 
+#Shows the properties and houses for the person
+def print_property_info(player):
+	for prop in player.properties:
+		print(f"Person: {player.name}, Name: {prop.name}, Houses: {prop.houses}")
+
 #----------Praying things work-------------
 if __name__ == "__main__":
 	global board, players
@@ -431,6 +442,7 @@ if __name__ == "__main__":
 		rounds += 1
 		#Goes through the player order for turns
 		for i in players:
+			print_property_info(i)
 			turns += 1
 			turn(i, board)
 		if len(players) <= 1:
