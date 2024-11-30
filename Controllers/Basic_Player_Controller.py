@@ -17,30 +17,31 @@ def jail_decision(player):
 #Will never have both property and group have values
 def buy_decision(player, property=None, group=None):
 	if property:
-		ms.buying_handler(player, property, property.buy_cost)
+		return property
 	elif group:
-		#Housing buying is currently broken
-		while True:
-			properties_available = ms.even_buy_check(group)
-			bought = False
+		temp_money = player.money
+		house_buys = []
+		properties_available = ms.even_buy_check(group)
+		bought = False
 
-			for property in properties_available:
-				if property.group.house_cost < player.money:
-					ms.buying_handler(player, property, property.group.house_cost, True)
-					bought = True
+		for property in properties_available:
+			if property.group.house_cost < temp_money:
+				house_buys.append(property)
+				temp_money -= property.group.house_cost
+				bought = True
 
-			if not bought:
-				break
+		if not bought:
+			if len(house_buys) > 0:
+				return house_buys
+			else:
+				return None
 
-#Returns Will never voluntarily sell so if forced is false do nothing
+#Will never voluntarily sell so if forced is false do nothing, returns an array to sell
 def mortgage_decision(player, cost, forced=False):
 	if not forced:
-		return
+		return []
 
-	player.sell(min(player.properties, key=lambda x: x.buy_cost))
-	if player.money <= cost:
-		mortgage_decision(player, cost, True)
-	return
+	return [min(player.properties, key=lambda x: x.buy_cost)]
 
 #Returns the og if the player is backing out, bets are made in intervals of 1, 10, or 100
 def auction_decision(player, property, bid):

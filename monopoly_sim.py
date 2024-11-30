@@ -16,6 +16,8 @@ Current Player-Controlled Decisions:
 	- Mortgaging (both forced and voluntary)
 	- Auctions
 	- Trading
+
+- Still the error where sometimes bankrupt tries to remove a player that isnt in the array
 """
 
 #--Player Functions (defined here to change controllers easily)--
@@ -24,11 +26,28 @@ def jail_decision(player):
 	return Basic_Player_Controller.jail_decision(player)
 
 def buy_decision(player, property=None, group=None):
-	#Returns nothing
-	Basic_Player_Controller.buy_decision(player, property, group)
+	to_buy = Basic_Player_Controller.buy_decision(player, property, group)
+	if to_buy:
+		if property:
+			buying_handler(player, property, property.buy_cost)
+		elif group:
+			if len(to_buy) == 0:
+				return
+			for prop in to_buy:
+				buying_handler(player, prop, prop.group.house_cost, True)
+			#Calls recursively to check if more houses can be bought now
+			buy_decision(player=player, group=group)
 
-def mortgage_decision(player, cost, forced=False):
-	Basic_Player_Controller.mortgage_decision(player, cost, forced)
+def mortgage_decision(player, cost, forced=False): #Maybe seperate this into 2 different decisions?
+	if not forced:
+		toSell = Basic_Player_Controller.mortgage_decision(player, cost, forced)
+		for i in toSell:
+				player.sell(i)
+	else:
+		while player.money <= cost:
+			toSell = Basic_Player_Controller.mortgage_decision(player, cost, forced)
+			for i in toSell:
+				player.sell(i)
 
 def auction_decision(player, property, bid):
 	#Returns the bid the player is making, just returns the inputed bid if no bid is made
@@ -362,8 +381,6 @@ def jail_handler(player):
 			return 0, False
 
 def payment_handler(player, payment, paying=None):
-	print(player.money, payment, player.net_worth)
-
 	if player.money + player.net_worth <= payment: #Introduce bankrupted to a player here
 		player.bankrupted()
 	else:
