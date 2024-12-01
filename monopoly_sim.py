@@ -15,8 +15,6 @@ Current Player-Controlled Decisions:
 	- Mortgaging (both forced and voluntary)
 	- Auctions
 	- Trading
-
-- Still the error where sometimes bankrupt tries to remove a player that isnt in the array
 """
 
 #--Player Functions (defined here to change controllers easily)--
@@ -381,7 +379,10 @@ def jail_handler(player):
 		elif player.turns_in_jail == 2:
 			payment_handler(player, 50)
 			player.leaveJail()
-			return roll()
+			if player.bankrupt:
+				return 0, False
+			else:
+				return roll()
 		else: 
 			player.turns_in_jail += 1
 			return 0, False
@@ -442,7 +443,7 @@ if __name__ == "__main__":
 		rounds += 1
 		#Goes through the player order for turns
 		for i in players:
-			print_property_info(i)
+			print_players()
 			turns += 1
 			turn(i, board)
 		if len(players) <= 1:
