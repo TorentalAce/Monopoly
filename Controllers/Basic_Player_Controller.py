@@ -35,6 +35,7 @@ def buy_decision(player, property=None, group=None):
 		return house_buys
 
 #Will never voluntarily sell so if forced is false do nothing, returns an array to sell
+#Won't sell houses individually, will just sell them with a property
 def mortgage_decision(player, cost, forced=False):
 	if not forced:
 		return []

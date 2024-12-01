@@ -6,14 +6,16 @@ Current simplifications:
 	- No chance/cc cards
 	- Mortgaging just sells the property rather than actual mortgage
 		- (Cant buy back either)
-	- Just removes all houses before selling property (no money back for them)
 
 Current Player-Controlled Decisions:
 	- Stay in jail or pay to leave
-	- Buying a property
+	- Buying a property/houses
 	- Mortgaging (both forced and voluntary)
 	- Auctions
 	- Trading
+
+Current (known) errors:
+	- None!
 """
 
 #--Player Functions (defined here to change controllers easily)--
@@ -50,6 +52,7 @@ def auction_decision(player, property, bid):
 
 #This one will end up having two decisions within it on the controller-side,
 #one for who to trade with and the other for what to trade
+#When implementing this, need to have a check to make sure theres no houses on the property being traded
 def trading_decision(player):
 	Basic_Player_Controller.trading_decision(player)
 
@@ -114,16 +117,27 @@ class player:
 		self.turns_in_jail = 0
 
 	def sell(self, property):
+		self.house_sell(property, property.houses)
 		self.properties.remove(property)
-		self.money += (property.buy_cost/2 + property.houses * property.group.house_cost/2)
-		self.net_worth -= (property.buy_cost/2 + property.houses * property.group.house_cost/2)
+		self.money += property.buy_cost/2
+		self.net_worth -= property.buy_cost/2
 		property.owned_by = None
 		property.group.all_owned = False
-		if property.houses == 5:
+
+	def house_sell(self, property, amount):
+		if amount > property.houses:
+			raise Exception("This shouldnt happen")
+
+		self.net_worth -= amount * property.group.house_cost/2
+		self.money += amount * property.group.house_cost/2
+
+		if property.houses == 5: #Hotel check
 			house_bank["hotels"] += 1
 			property.houses -= 1
-		house_bank["houses"] += property.houses
-		property.houses = 0
+			amount -= 1
+
+		house_bank["houses"] += amount
+		property.houses -= amount
 
 	def bankrupted(self, other=None):
 		if other:
@@ -397,6 +411,7 @@ def jail_handler(player):
 			player.turns_in_jail += 1
 			return 0, False
 
+#Handles payments
 def payment_handler(player, payment, paying=None):
 	if player.money + player.net_worth <= payment:
 		player.bankrupted(paying)
