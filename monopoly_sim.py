@@ -6,7 +6,6 @@ Current simplifications:
 	- No chance/cc cards
 	- Mortgaging just sells the property rather than actual mortgage
 		- (Cant buy back either)
-	- Unlimited houses/hotels (no bank limit)
 	- Just removes all houses before selling property (no money back for them)
 
 Current Player-Controlled Decisions:
@@ -31,7 +30,8 @@ def buy_decision(player, property=None, group=None):
 			if len(to_buy) == 0:
 				return
 			for prop in to_buy:
-				buying_handler(player, prop, prop.group.house_cost, True)
+				if not buying_handler(player, prop, prop.group.house_cost, True): #Should happen if house_bank is empty in some part
+					return
 			#Calls recursively to check if more houses can be bought now
 			buy_decision(player=player, group=group)
 
@@ -119,6 +119,10 @@ class player:
 		self.net_worth -= (property.buy_cost/2 + property.houses * property.group.house_cost/2)
 		property.owned_by = None
 		property.group.all_owned = False
+		if property.houses == 5:
+			house_bank["hotels"] += 1
+			property.houses -= 1
+		house_bank["houses"] += property.houses
 		property.houses = 0
 
 	def bankrupted(self, other=None):
@@ -343,6 +347,11 @@ def auction_trigger(player, property):
 def buying_handler(player, property, cost, house_buy=False):
 	if cost < player.money:
 		if house_buy:
+			key_check = "hotels" if property.houses == 4 else "houses"
+			if house_bank[key_check] == 0:
+				return False
+			else:
+				house_bank[key_check] -= 1
 			property.houses += 1
 			player.net_worth += cost/2
 		else:
@@ -351,6 +360,7 @@ def buying_handler(player, property, cost, house_buy=False):
 			property.group.owned_check(player)
 			player.net_worth += property.buy_cost/2 #Can't just use cost in case auction was called
 		player.money -= cost
+		return True
 
 #Helper function since have to buy houses evenly
 def even_buy_check(group):
@@ -431,9 +441,13 @@ def print_property_info(player):
 
 #----------Praying things work-------------
 if __name__ == "__main__":
-	global board, players
+	global board, players, house_bank
 	board = []
 	players = []
+	house_bank = {
+		"houses": 32,
+		"hotels": 12
+	}
 	initialize_game()
 	turns = 0
 	rounds = 0
@@ -443,7 +457,6 @@ if __name__ == "__main__":
 		rounds += 1
 		#Goes through the player order for turns
 		for i in players:
-			print_players()
 			turns += 1
 			turn(i, board)
 		if len(players) <= 1:

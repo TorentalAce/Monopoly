@@ -22,19 +22,17 @@ def buy_decision(player, property=None, group=None):
 		temp_money = player.money
 		house_buys = []
 		properties_available = ms.even_buy_check(group)
-		bought = False
+		if len(properties_available) == 0:
+			return []
 
 		for property in properties_available:
 			if property.group.house_cost < temp_money:
 				house_buys.append(property)
 				temp_money -= property.group.house_cost
-				bought = True
-
-		if not bought:
-			if len(house_buys) > 0:
-				return house_buys
 			else:
-				return None
+				break
+
+		return house_buys
 
 #Will never voluntarily sell so if forced is false do nothing, returns an array to sell
 def mortgage_decision(player, cost, forced=False):
