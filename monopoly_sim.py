@@ -17,6 +17,19 @@ Current Player-Controlled Decisions:
 	- Auctions
 	- Trading
 
+How decisions are handled:
+	- Jail - If True, pays to leave, if False (or doesn't have the money), roll to leave
+	- Buying a property - If True, buys the property, if False, goes to auction
+	- Buying houses - Buys houses for the property returned, keeps asking until no more 
+	elligible properties, or none is returned
+	- Mortgaging - Prompts to sell both properties, and houses (with properties prompted first),
+	continues until costs are covered
+	- Optional Selling - NYI (Not yet implemented), will work similar to mortgaging, 
+	but break when None is returned
+	- Auctions - Prompts for a bid, if the same value is returned as the original bid the player
+	is considered to be 'out' of the auction (or if bid >= player.money)
+	- Trading - NYI (Not yet implemented)
+
 Current (known) errors/need to change: None
 
 Todo: Work on mortgage next
@@ -28,9 +41,10 @@ def jail_decision(player):
 	return Basic.jail_decision(player)
 
 def buy_decision(player, property=None):
-	to_buy = Basic.buy_decision(player, property)
-	if to_buy:
-			buying_handler(player, property, property.buy_cost)
+	if Basic.buy_decision(player, property):
+		buying_handler(player, property, property.buy_cost)
+	else:
+		auction_trigger(player, property)
 
 def house_buy_decision(player):
 	props = []
@@ -418,10 +432,6 @@ def turn(player, board, doubles_num=0):
 
 		trading_decision(player)
 
-		#for i in player.properties:
-			#if i.group.all_owned and i.group.name not in ["Utility", "Railroad"]:
-				#buy_decision(player=player, group=i.group)
-
 		house_buy_decision(player)
 
 		if doubles:
@@ -437,7 +447,7 @@ def auction_trigger(player, property):
 		for i in players_in:
 			prev_bid = bid
 			bid = auction_decision(i, property, bid)
-			if bid >= player.money or bid == prev_bid:
+			if bid >= i.money or bid == prev_bid:
 				players_in.remove(i)
 				bid = prev_bid
 		if len(players_in) == 1:

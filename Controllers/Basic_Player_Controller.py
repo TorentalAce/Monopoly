@@ -6,8 +6,9 @@ The basic controller will make very bare-bones decisions.
 Jail - Always pay to leave (unless you would need to mortgage)
 Property Buying - Always purchase a property if able
 House Buying - Always tries to buy on the most expensive it can
-Mortgage - Sell the least valuable property first
+Mortgage - Sell the least valuable property first, always try to sell properties before selling houses
 Optional Sell - Never voluntarily sell
+Selling Houses - Sell the least valuable houses if possible
 Auction - Bet the max bet up to the property's original price, then leave
 Trading - Will never trade
 """
@@ -18,7 +19,7 @@ def jail_decision(player):
 
 #Will always try to buy (assumes can buy at this point)
 def buy_decision(player, property=None):
-	return property
+	return True
 
 """
 Takes a list of elligible properties that you can buy houses on
