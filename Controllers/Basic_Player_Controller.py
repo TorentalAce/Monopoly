@@ -4,8 +4,10 @@ import monopoly_sim as ms
 The basic controller will make very bare-bones decisions.
 
 Jail - Always pay to leave (unless you would need to mortgage)
-Buying - Always purchase a property if able, always purchases houses if able to
-Mortgage - Sell the least valuable properties first, never voluntarily sell
+Property Buying - Always purchase a property if able
+House Buying - Always tries to buy on the most expensive it can
+Mortgage - Sell the least valuable property first
+Optional Sell - Never voluntarily sell
 Auction - Bet the max bet up to the property's original price, then leave
 Trading - Will never trade
 """
@@ -14,33 +16,36 @@ Trading - Will never trade
 def jail_decision(player):
 	return True
 
-#Will never have both property and group have values
-def buy_decision(player, property=None, group=None):
-	if property:
-		return property
-	elif group:
-		temp_money = player.money
-		house_buys = []
-		properties_available = ms.even_buy_check(group)
-		if len(properties_available) == 0:
-			return []
+#Will always try to buy (assumes can buy at this point)
+def buy_decision(player, property=None):
+	return property
 
-		for property in properties_available:
-			if property.group.house_cost < temp_money:
-				house_buys.append(property)
-				temp_money -= property.group.house_cost
-			else:
-				break
+"""
+Takes a list of elligible properties that you can buy houses on
+Returns a property to buy houses on (or none)
+Elligible properties are properties that fulfill the following:
+	a) all properties in the group are owned by the same player
+	b) house cost < player money
+	c) lowest amount of houses within the group
+	d) less than 5 houses (a hotel)
+"""
 
-		return house_buys
+#Always buy the most expensive possible
+def house_buy_decision(player, properties):
+	return max(properties, key=lambda x: x.buy_cost)
 
-#Will never voluntarily sell so if forced is false do nothing, returns an array to sell
-#Won't sell houses individually, will just sell them with a property
-def mortgage_decision(player, cost, forced=False):
-	if not forced:
-		return []
+#Returns minimum value property to sell, sells houses if can't sell properties
+def mortgage_decision(player, cost, properties):
+	if len(properties) == 0: return None
+	return min(properties, key=lambda x: x.buy_cost)
 
-	return [min(player.properties, key=lambda x: x.buy_cost)]
+#Will never optionally sell, also will be used for optional house selling
+def optional_sell_decision(player):
+	return None
+
+#Always sell the least expensive
+def house_sell_decision(player, properties):
+	return min(properties, key=lambda x: x.group.house_cost)
 
 #Returns the og if the player is backing out, bets are made in intervals of 1, 10, or 100
 def auction_decision(player, property, bid):

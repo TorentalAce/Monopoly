@@ -1,5 +1,5 @@
 import random
-from Controllers import Basic_Player_Controller
+from Controllers import Basic_Player_Controller as Basic
 
 """
 Current simplifications:
@@ -9,52 +9,143 @@ Current simplifications:
 
 Current Player-Controlled Decisions:
 	- Stay in jail or pay to leave
-	- Buying a property/houses
-	- Mortgaging (both forced and voluntary)
+	- Buying a property
+	- Buying houses
+	- Mortgaging (forced selling)
+	- Optional Selling (will handle properties & houses)
+	- Selling houses
 	- Auctions
 	- Trading
 
-Current (known) errors:
-	- None!
+Current (known) errors/need to change: None
+
+Todo: Work on mortgage next
 """
 
 #--Player Functions (defined here to change controllers easily)--
 def jail_decision(player):
 	#True if leaving, false if rolling
-	return Basic_Player_Controller.jail_decision(player)
+	return Basic.jail_decision(player)
 
-def buy_decision(player, property=None, group=None):
-	to_buy = Basic_Player_Controller.buy_decision(player, property, group)
+def buy_decision(player, property=None):
+	to_buy = Basic.buy_decision(player, property)
 	if to_buy:
-		if property:
 			buying_handler(player, property, property.buy_cost)
-		elif group:
-			if len(to_buy) == 0:
-				return
-			for prop in to_buy:
-				if not buying_handler(player, prop, prop.group.house_cost, True): #Should happen if house_bank is empty in some part
-					return
-			#Calls recursively to check if more houses can be bought now
-			buy_decision(player=player, group=group)
 
-def mortgage_decision(player, cost, forced=False): #Maybe seperate this into 2 different decisions?
-	if not forced:
-		for i in Basic_Player_Controller.mortgage_decision(player, cost, forced):
-				player.sell(i)
-	else:
-		while player.money <= cost:
-			for i in Basic_Player_Controller.mortgage_decision(player, cost, forced):
-				player.sell(i)
+def house_buy_decision(player):
+	props = []
+	for property in player.properties:
+		if property.group.all_owned and property.group.house_cost < player.money and property.houses < 5:
+			if (property.houses == 4 and house_bank["hotels"] != 0) or (property.houses < 4 and house_bank["houses"] != 0):
+				if property.group not in props: props.append(property.group)
+	
+	final_props = []
+
+	for group in props:
+		if group.name not in ("Utility", "Railroad"):
+			final_props += even_buy_check(group) #After this, should have every property the person can buy on
+
+	if len(final_props) == 0: return
+
+	while True:
+		#Gives the buy decision, breaks if none is returned
+		prop_to_buy = Basic.house_buy_decision(player, final_props)
+		if not prop_to_buy: break
+		buying_handler(player, prop_to_buy, prop_to_buy.group.house_cost, True)
+
+		#Removes the property and checks if the group is fully gone, if it is reinsert 
+		#if the props still meet conditions (covers if the last property 
+		#buys the set of houses it needed)
+		final_props.remove(prop_to_buy)
+		check = True
+		for i in final_props:
+			if i.group == prop_to_buy.group: check = False
+		if check: final_props += even_buy_check(prop_to_buy.group)
+
+		temp = final_props.copy()
+		#Now removes anything from the remaining array that the player can no longer afford
+		for i in final_props:
+			if i.group.house_cost >= player.money or (i.houses == 4 and house_bank["hotels"] == 0) or (i.houses < 4 and house_bank["houses"] == 0):
+				temp.remove(i)
+
+		final_props = temp.copy()
+		#If the array is empty here, break
+		if len(final_props) == 0: break
+
+#This logic basically lets the player mortgage properties that dont have houses on them, 
+#and then asks for properties with houses, if all the houses in a group are sold, it
+#adds that group to the mortgage list
+def mortgage_decision(player, cost):
+	available_list = []
+	houses_list = []
+	for property in player.properties:
+		if property.houses == 0:
+			yes = True
+			for prop in property.group.properties:
+				if prop.houses != 0:
+					yes = False
+					break
+			if yes: available_list.append(property)
+
+	while player.money <= cost:
+		to_mortgage = Basic.mortgage_decision(player, cost, available_list)
+		if to_mortgage:
+			player.sell(to_mortgage)
+			available_list.remove(to_mortgage)
+		else:
+			#This will return a group back if an entire property set sold off its houses
+			group_add = house_sell_decision(player, cost)
+			if group_add: available_list += group_add.properties
+
+def optional_sell_decision(player):
+	while True:
+		to_mortgage = Basic.optional_sell_decision(player)
+		if to_mortgage: player.sell(to_mortgage)
+		else: break
+
+def house_sell_decision(player, cost):
+	group_list = []
+	for property in player.properties:
+		if property.houses > 0 and property.group not in group_list: group_list.append(property.group)
+
+	available_list = []
+	for group in group_list:
+		high_houses = 0
+		temp = []
+		for property in group.properties:
+			if property.houses > high_houses:
+				high_houses = property.houses
+				temp = [property]
+			elif property.houses == high_houses:
+				temp.append(property)
+		available_list += temp
+
+	while cost > player.money and len(available_list) > 0:
+		prop_to_sell = Basic.house_sell_decision(player, available_list)
+		player.house_sell(prop_to_sell, 1)
+		available_list.remove(prop_to_sell)
+		group_check = False
+		for i in available_list:
+			if i.group == prop_to_sell.group:
+				group_check = True
+				break
+		if group_check: continue
+		elif prop_to_sell.houses > 0:
+			available_list += prop_to_sell.group.properties
+		else:
+			return prop_to_sell.group
+
+	return None
 
 def auction_decision(player, property, bid):
 	#Returns the bid the player is making, just returns the inputed bid if no bid is made
-	return Basic_Player_Controller.auction_decision(i, property, bid)
+	return Basic.auction_decision(i, property, bid)
 
 #This one will end up having two decisions within it on the controller-side,
 #one for who to trade with and the other for what to trade
 #When implementing this, need to have a check to make sure theres no houses on the property being traded
 def trading_decision(player):
-	Basic_Player_Controller.trading_decision(player)
+	Basic.trading_decision(player)
 
 #-----------CLASS DEFINITIONS------------
 
@@ -117,7 +208,6 @@ class player:
 		self.turns_in_jail = 0
 
 	def sell(self, property):
-		self.house_sell(property, property.houses)
 		self.properties.remove(property)
 		self.money += property.buy_cost/2
 		self.net_worth -= property.buy_cost/2
@@ -125,9 +215,6 @@ class player:
 		property.group.all_owned = False
 
 	def house_sell(self, property, amount):
-		if amount > property.houses:
-			raise Exception("This shouldnt happen")
-
 		self.net_worth -= amount * property.group.house_cost/2
 		self.money += amount * property.group.house_cost/2
 
@@ -327,13 +414,15 @@ def turn(player, board, doubles_num=0):
 
 	if not player.bankrupt: #Make sure the player didnt go bankrupt above
 		#At this point decisions can be made about buying houses, selling properties/bldgs, and trading
-		mortgage_decision(player, -1)
+		optional_sell_decision(player)
 
 		trading_decision(player)
 
-		for i in player.properties:
-			if i.group.all_owned and i.group.name not in ["Utility", "Railroad"]:
-				buy_decision(player=player, group=i.group)
+		#for i in player.properties:
+			#if i.group.all_owned and i.group.name not in ["Utility", "Railroad"]:
+				#buy_decision(player=player, group=i.group)
+
+		house_buy_decision(player)
 
 		if doubles:
 			turn(player, board, doubles_num+1)
@@ -417,7 +506,7 @@ def payment_handler(player, payment, paying=None):
 		player.bankrupted(paying)
 	else:
 		if player.money <= payment:
-			mortgage_decision(player, payment, True)
+			mortgage_decision(player, payment)
 		
 		player.money -= payment
 		if paying:
