@@ -3,7 +3,6 @@ from Controllers import Basic_Player_Controller as Basic
 
 """
 Current simplifications:
-	- No chance/cc cards
 	- Mortgaging just sells the property rather than actual mortgage
 		- (Cant buy back either)
 	- Trading and optional selling not yet implemented since Basic controller will never
@@ -31,19 +30,22 @@ How decisions are handled:
 	- Auctions - Prompts for a bid, if the same value is returned as the original bid the player
 	is considered to be 'out' of the auction (or if bid >= player.money)
 	- Trading - NYI (Not yet implemented)
+		- This one will be tricky, will likely iterate over every player and deciding
+		what to trade (if at all), with another decision on the incoming end on whether
+		to accept, reject, or counteroffer
 
 Current (known) errors/need to change: 
-- Rare permanent loop error within house_sell_decision (not sure the cause yet)
+- permanent loop issue in mortgage_decision/house_sell rarely (no clue what this one is)
 
 Todo: 
-Add get out of jail free card (case 4 for card handler)
+Find&Fix the perma loop error
 Work on mortgage next
 """
 
 #--Player Functions (defined here to change controllers easily)--
 def jail_decision(player):
 	#True if leaving, false if rolling
-	return Basic.jail_decision(player)
+	return Basic.jail_decision(player, player.gooj_card)
 
 def buy_decision(player, property=None):
 	if Basic.buy_decision(player, property):
@@ -212,6 +214,7 @@ class player:
 		self.turns_in_jail = 0
 		self.bankrupt = False
 		self.net_worth = 0
+		self.gooj_card = []
 
 	def __str__(self):
 		property_print = list(map(lambda x: x.name, self.properties))
@@ -253,11 +256,13 @@ class player:
 				i.owned_by = other
 				other.net_worth += i.buy_cost / 2
 			self.properties = []
+			other.gooj_card.append(self.gooj_card)
 		else:
 			for i in self.properties:
 				self.sell(i)
 		self.money = 0
 		self.net_worth = 0
+		self.gooj_card = []
 		self.bankrupt = True
 		players.remove(self)
 
@@ -401,14 +406,13 @@ def turn(player, board, doubles_num=0):
 		else:
 			player.position += movement
 			if player.position >= 40:
+				player.money += 200
 				player.position -= 40
 
 	#Check what square was landed on and take appropriate action
 	square = board[player.position]
 
 	match square.name:
-		case "Go":
-			player.money += 200
 		case "Income Tax":
 			payment_handler(player, 200)
 		case "Go To Jail":
@@ -416,10 +420,11 @@ def turn(player, board, doubles_num=0):
 			doubles = False
 		case "Luxary Tax":
 			payment_handler(player, 100)
-		case x if x in ("Free Parking", "Jail"):
+		case x if x in ("Free Parking", "Jail", "Go"):
 			pass
 		case x if x in ("Community Chest", "Chance"):
-			card_handler(player, x)
+			if card_handler(player, x):
+				doubles = False
 		case _: #This one is all the properties basically
 			if not square.owned_by:
 				if player.money > square.buy_cost:
@@ -511,7 +516,13 @@ def even_buy_check(group):
 
 #Handles the jail stuff
 def jail_handler(player):
-	if jail_decision(player) and player.money > 50:
+	choice = jail_decision(player)
+	if type(choice) == dict:
+		player.gooj_card.remove(choice)
+		choice["gooj_owned"] = False
+		player.leaveJail()
+		return roll()
+	elif choice and player.money > 50:
 		player.money -= 50
 		player.leaveJail()
 		return roll()
@@ -555,10 +566,13 @@ def initialize_cards():
 
 #If every card in the chance or cc deck is used, reset deck
 def shuffle_deck(deck):
-	for key in deck:
-		if key != "used":
-			deck[key] = True
 	deck["used"] = 0
+	for key in deck:
+		if key not in ("used", "gooj_owned"):
+			if key == 4 and deck["gooj_owned"]:
+				deck["used"] = 1
+				continue
+			deck[key] = True
 
 #Will handle the chance/cc card pulled
 def card_handler(player, deck_name):
@@ -572,6 +586,8 @@ def card_handler(player, deck_name):
 		while True:
 			card = random.randint(0, 14)
 			if deck[card]: break
+
+	double_end_check = False #If went to jail gotta set this true
 
 	#Cards described by chance / community chest (with 15/16 as exceptions)
 	#Cards copied from monopoly.fandom.com/wiki/{Community_Chest / Chance}
@@ -651,10 +667,12 @@ def card_handler(player, deck_name):
 				player.money += 50
 
 		case 4: #Get out of jail free card
-			pass
+			player.gooj_card.append(deck)
+			deck["gooj_owned"] = True
 
 		case 5: #Go to jail
 			player.goToJail()
+			double_end_check = True
 
 		case 6: #Advance to the nearest railroad, 2x rent / collect $100
 			if deck == chance_cards:
@@ -797,6 +815,8 @@ def card_handler(player, deck_name):
 	if (deck_name == "Community Chest" and deck["used"] == 17) or (deck_name == "Chance" and deck["used"] == 15):
 		shuffle_deck(deck)
 
+	return double_end_check
+
 #------------DEBUG FUNCTIONS---------------
 #Shows current board state
 def print_board():
@@ -837,8 +857,8 @@ if __name__ == "__main__":
 		"houses": 32,
 		"hotels": 12
 	}
-	chance_cards = {"used": 0}
-	cc_cards = {"used": 0}
+	chance_cards = {"used": 0, "gooj_owned": False}
+	cc_cards = {"used": 0, "gooj_owned": False}
 	initialize_game()
 	turns = 0
 	rounds = 0
@@ -853,4 +873,11 @@ if __name__ == "__main__":
 		if len(players) <= 1:
 			print(f"The winner is: {players[0].name}")
 			print(f"This game took: {turns} turns over {rounds} rounds")
+			break
+		if rounds == 1000:
+			string_players = ""
+			for player in players:
+				string_players += player.name + ", "
+			print(f"The game last too long going for {turns} turns over {rounds} rounds")
+			print(f"The remaining players are: {string_players[:-2]}")
 			break

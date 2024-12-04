@@ -1,7 +1,9 @@
 import monopoly_sim as ms
 
 """
-The basic controller will make very bare-bones decisions.
+The basic controller will make very bare-bones decisions. Note, this will make most
+games end in a draw (since most times no house groups end up collected, and payments can't
+keep up with the gain from cards/go)
 
 Jail - Always pay to leave (unless you would need to mortgage)
 Property Buying - Always purchase a property if able
@@ -14,7 +16,8 @@ Trading - Will never trade
 """
 
 #Always tries to leave jail as long as doesnt have to sell
-def jail_decision(player):
+def jail_decision(player, jail_card=[]):
+	if len(jail_card) > 0: return jail_card[0]
 	return True
 
 #Will always try to buy (assumes can buy at this point)
