@@ -6,6 +6,8 @@ Current simplifications:
 	- No chance/cc cards
 	- Mortgaging just sells the property rather than actual mortgage
 		- (Cant buy back either)
+	- Trading and optional selling not yet implemented since Basic controller will never
+	use these options
 
 Current Player-Controlled Decisions:
 	- Stay in jail or pay to leave
@@ -30,9 +32,12 @@ How decisions are handled:
 	is considered to be 'out' of the auction (or if bid >= player.money)
 	- Trading - NYI (Not yet implemented)
 
-Current (known) errors/need to change: None
+Current (known) errors/need to change: 
+- Rare permanent loop error within house_sell_decision (not sure the cause yet)
 
-Todo: Work on mortgage next
+Todo: 
+Add get out of jail free card (case 4 for card handler)
+Work on mortgage next
 """
 
 #--Player Functions (defined here to change controllers easily)--
@@ -265,6 +270,8 @@ def initialize_square(position, groups):
 			return property(name="Go")
 		case 1:
 			return property(name="Mediteranean Avenue", buy_cost=60, rent_cost=2, group=groups["brown"], housing=[10, 30, 90, 160, 250])
+		case 2:
+			return property(name="Community Chest")
 		case 3:
 			return property(name="Baltic Avenue", buy_cost=60, rent_cost=4, group=groups["brown"], housing=[20, 60, 180, 320, 450])
 		case 4:
@@ -273,6 +280,8 @@ def initialize_square(position, groups):
 			return property(name="Reading Railroad", buy_cost=200, rent_cost=25, group=groups["railroad"])
 		case 6:
 			return property(name="Oriental Avenue", buy_cost=100, rent_cost=6, group=groups["light_blue"], housing=[30, 90, 270, 400, 550])
+		case 7:
+			return property(name="Chance")
 		case 8:
 			return property(name="Vermont Avenue", buy_cost=100, rent_cost=6, group=groups["light_blue"], housing=[30, 90, 270, 400, 550])
 		case 9:
@@ -291,12 +300,18 @@ def initialize_square(position, groups):
 			return property(name="Pennsylvania Railroad", buy_cost=200, rent_cost=25, group=groups["railroad"])
 		case 16:
 			return property(name="St. James Place", buy_cost=180, rent_cost=14, group=groups["orange"], housing=[70, 200, 550, 700, 950])
+		case 17:
+			return property(name="Community Chest")
 		case 18:
 			return property(name="Tennessee Avenue", buy_cost=180, rent_cost=14, group=groups["orange"], housing=[70, 200, 550, 700, 950])
 		case 19:
 			return property(name="New York Avenue", buy_cost=180, rent_cost=16, group=groups["orange"], housing=[80, 220, 600, 800, 1000])
+		case 20:
+			return property(name="Free Parking")
 		case 21:
 			return property(name="Kentucky Avenue", buy_cost=220, rent_cost=18, group=groups["red"], housing=[90, 250, 700, 875, 1050])
+		case 22:
+			return property(name="Chance")
 		case 23:
 			return property(name="Indiana Avenue", buy_cost=220, rent_cost=18, group=groups["red"], housing=[90, 250, 700, 875, 1050])
 		case 24:
@@ -317,19 +332,20 @@ def initialize_square(position, groups):
 			return property(name="Pacific Avenue", buy_cost=300, rent_cost=26, group=groups["green"], housing=[130, 390, 900, 1100, 1275])
 		case 32:
 			return property(name="North Carolina Avenue", buy_cost=300, rent_cost=26, group=groups["green"], housing=[130, 390, 900, 1100, 1275])
+		case 33:
+			return property(name="Community Chest")
 		case 34:
 			return property(name="Pennsylvania Avenue", buy_cost=320, rent_cost=28, group=groups["green"], housing=[150, 450, 1000, 1200, 1400])
 		case 35:
 			return property(name="Short Line", buy_cost=200, rent_cost=25, group=groups["railroad"])
+		case 36:
+			return property(name="Chance")
 		case 37:
 			return property(name="Park Place", buy_cost=350, rent_cost=35, group=groups["blue"], housing=[175, 500, 1100, 1300, 1500])
 		case 38:
 			return property(name="Luxary Tax")
 		case 39:
 			return property(name="Boardwalk", buy_cost=400, rent_cost=50, group=groups["blue"], housing=[200, 600, 1400, 1700, 2000])
-		#Default case used as placeholder for free parking, chance, & cc
-		case _:
-			return property(name="Empty Square")
 
 #Returns the filled board state as an array
 def initialize_game():
@@ -360,6 +376,8 @@ def initialize_game():
 
 	for name in final_order:
 		players.append(player(name=name[1]))
+
+	initialize_cards()
 
 #Rolls for a player, returns a tuple of the roll amount and if a double was rolled
 def roll():
@@ -398,8 +416,10 @@ def turn(player, board, doubles_num=0):
 			doubles = False
 		case "Luxary Tax":
 			payment_handler(player, 100)
-		case x if x in ("Empty Square", "Jail"):
+		case x if x in ("Free Parking", "Jail"):
 			pass
+		case x if x in ("Community Chest", "Chance"):
+			card_handler(player, x)
 		case _: #This one is all the properties basically
 			if not square.owned_by:
 				if player.money > square.buy_cost:
@@ -522,6 +542,261 @@ def payment_handler(player, payment, paying=None):
 		if paying:
 			paying.money += payment
 
+#Initializes the chance and community chest cards
+def initialize_cards():
+	#Fills the decks
+	#Chance has 15 cards
+	for i in range(0, 15):
+		chance_cards[i] = True
+
+	#Community chest has 17 cards
+	for i in range(0, 17):
+		cc_cards[i] = True
+
+#If every card in the chance or cc deck is used, reset deck
+def shuffle_deck(deck):
+	for key in deck:
+		if key != "used":
+			deck[key] = True
+	deck["used"] = 0
+
+#Will handle the chance/cc card pulled
+def card_handler(player, deck_name):
+	deck = cc_cards if deck_name == "Community Chest" else chance_cards
+
+	if deck == cc_cards:
+		while True:
+			card = random.randint(0, 16)
+			if deck[card]: break
+	else:
+		while True:
+			card = random.randint(0, 14)
+			if deck[card]: break
+
+	#Cards described by chance / community chest (with 15/16 as exceptions)
+	#Cards copied from monopoly.fandom.com/wiki/{Community_Chest / Chance}
+	match (card):
+		case 0: #Advance to go for both
+			player.position = 0
+			player.money += 200
+
+		case 1: #Advance to Illinois Ave. / Collect $200
+			if deck == chance_cards:
+				if player.position > 24:
+					player.money += 200
+				player.position = 24
+
+				square = board[player.position]
+				if square.owned_by and square.owned_by != player:
+					if square.group.all_owned:
+						if square.houses == 0:
+							rent_cost = square.rent_cost*2
+						else:
+							rent_cost = square.housing[square.houses-1]
+					else:
+						rent_cost = square.rent_cost
+					payment_handler(player, rent_cost, square.owned_by)
+				elif not square.owned_by: #If not owned
+					if player.money > square.buy_cost:
+						buy_decision(player=player, property=square)
+					else:
+						auction_trigger(player, square)
+			else:
+				player.money += 200
+
+		case 2: #Advance to St. Charles Place / Pay $50
+			if deck == chance_cards:
+				if player.position > 11:
+					player.money += 200
+				player.position = 11
+
+				square = board[player.position]
+				if square.owned_by and square.owned_by != player:
+					if square.group.all_owned:
+						if square.houses == 0:
+							rent_cost = square.rent_cost*2
+						else:
+							rent_cost = square.housing[square.houses-1]
+					else:
+						rent_cost = square.rent_cost
+					payment_handler(player, rent_cost, square.owned_by)
+				elif not square.owned_by: #If not owned
+					if player.money > square.buy_cost:
+						buy_decision(player=player, property=square)
+					else:
+						auction_trigger(player, square)
+			else:
+				payment_handler(player, 50)
+
+		case 3: #Advance to nearest utility, pay 10x dice roll if owned / Get $50
+			if deck == chance_cards:
+				if player.position > 28:
+					player.money += 200
+					player.position = 12
+				elif player.position > 12:
+					player.position = 28
+				else:
+					player.position = 12
+
+				square = board[player.position]
+				if square.owned_by and square.owned_by != player:
+					rent_cost = roll()[0] * 10
+					payment_handler(player, rent_cost, square.owned_by)
+				elif not square.owned_by: #If not owned
+					if player.money > square.buy_cost:
+						buy_decision(player=player, property=square)
+					else:
+						auction_trigger(player, square)
+			else:
+				player.money += 50
+
+		case 4: #Get out of jail free card
+			pass
+
+		case 5: #Go to jail
+			player.goToJail()
+
+		case 6: #Advance to the nearest railroad, 2x rent / collect $100
+			if deck == chance_cards:
+				if player.position > 35:
+					player.money += 200
+					player.position = 5
+				elif player.position > 5:
+					player.position = 15
+				elif player.position > 15:
+					player.position = 25
+				elif player.position > 25:
+					player.position = 35
+				else:
+					player.position = 5
+
+				square = board[player.position]
+				if square.owned_by and square.owned_by != player:
+					rr_owned = sum(1 for i in square.group.properties if i.owned_by == square.owned_by)
+					rent_cost = 25 * (2**(rr_owned-1)) * 2
+					payment_handler(player, rent_cost, square.owned_by)
+				elif not square.owned_by: #If not owned
+					if player.money > square.buy_cost:
+						buy_decision(player=player, property=square)
+					else:
+						auction_trigger(player, square)
+			else:
+				player.money += 100
+
+		case 7: #Get $50 / Collect $50 from each player
+			if deck == chance_cards:
+				player.money += 50
+			else:
+				for i in players:
+					if i != player: payment_handler(i, 50, player)
+
+		case 8: #Go back 3 spaces / Collect $20
+			if deck == chance_cards:
+				player.position -= 3
+				#Theres only 3 spaces the player can be after this, each handled below
+				if player.position == 4: #Income tax
+					payment_handler(player, 200)
+				elif player.position == 19: #New york ave.
+					square = board[player.position]
+					if square.owned_by and square.owned_by != player:
+						if square.group.all_owned:
+							if square.houses == 0:
+								rent_cost = square.rent_cost*2
+							else:
+								rent_cost = square.housing[square.houses-1]
+						else:
+							rent_cost = square.rent_cost
+						payment_handler(player, rent_cost, square.owned_by)
+					elif not square.owned_by: #If not owned
+						if player.money > square.buy_cost:
+							buy_decision(player=player, property=square)
+						else:
+							auction_trigger(player, square)
+				else: #CC
+					card_handler(player, "Community Chest")
+			else:
+				player.money += 20
+
+		case 9: #Repairs (25/100 / 40/115)
+			if deck == chance_cards:
+				house = 25
+				hotel = 100
+			else:
+				house = 40
+				hotel = 115
+			total_cost = sum(house*prop.houses if prop.houses < 5 else hotel for prop in player.properties)
+			payment_handler(player, total_cost)
+
+		case 10: # Go to Reading Railroad / 10 from each player
+			if deck == chance_cards:
+				player.money += 200
+				player.position = 5
+				square = board[player.position]
+				if square.owned_by and square.owned_by != player:
+					rr_owned = sum(1 for i in square.group.properties if i.owned_by == square.owned_by)
+					rent_cost = 25 * (2**(rr_owned-1))
+					payment_handler(player, rent_cost, square.owned_by)
+				elif not square.owned_by: #If not owned
+					if player.money > square.buy_cost:
+						buy_decision(player=player, property=square)
+					else:
+						auction_trigger(player, square)
+			else:
+				for i in players:
+					if i != player: payment_handler(i, 50, player)
+
+		case 11: #Pay $15 / Collect $100
+			if deck == chance_cards:
+				payment_handler(player, 15)
+			else:
+				player.money += 100
+
+		case 12: #Advance to boardwalk / Pay $50
+			if deck == chance_cards:
+				player.position = 39
+				square = board[player.position]
+				if square.owned_by and square.owned_by != player:
+					if square.group.all_owned:
+						if square.houses == 0:
+							rent_cost = square.rent_cost*2
+						else:
+							rent_cost = square.housing[square.houses-1]
+					else:
+						rent_cost = square.rent_cost
+					payment_handler(player, rent_cost, square.owned_by)
+				elif not square.owned_by: #If not owned
+					if player.money > square.buy_cost:
+						buy_decision(player=player, property=square)
+					else:
+						auction_trigger(player, square)
+			else:
+				payment_handler(player, 50)
+
+		case 13: #Pay each player $50 / Pay $50
+			if deck == chance_cards:
+				for i in players:
+					if i != player: payment_handler(player, 50, i)
+			else:
+				payment_handler(player, 50)
+
+		case 14: #Collect $150 / collect $25
+			if deck == chance_cards:
+				player.money += 150
+			else:
+				player.money += 25
+
+		case 15: #Collect $10
+			player.money += 10
+
+		case 16: #Collect $100
+			player.money += 100
+
+	deck[card] = False
+	deck["used"] += 1
+	#Shuffles deck at the end if all the cards have been used up
+	if (deck_name == "Community Chest" and deck["used"] == 17) or (deck_name == "Chance" and deck["used"] == 15):
+		shuffle_deck(deck)
+
 #------------DEBUG FUNCTIONS---------------
 #Shows current board state
 def print_board():
@@ -555,13 +830,15 @@ def print_property_info(player):
 
 #----------Praying things work-------------
 if __name__ == "__main__":
-	global board, players, house_bank
+	global board, players, house_bank, chance_cards, cc_cards
 	board = []
 	players = []
 	house_bank = {
 		"houses": 32,
 		"hotels": 12
 	}
+	chance_cards = {"used": 0}
+	cc_cards = {"used": 0}
 	initialize_game()
 	turns = 0
 	rounds = 0
