@@ -6,8 +6,12 @@ Python3 monopoly_sim.py
 `
 
 To run multiple games, run the following commands, where games is the amount of games you want to simulate (as an integer):
+
 `
 chmod +x testfile.sh
+`
+
+`
 ./testfile.sh games
 `
 
