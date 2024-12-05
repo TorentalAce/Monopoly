@@ -2,7 +2,7 @@
 
 set -e
 
-for i in {1..10000}
+for i in $(seq 1 $1)
 do
 	python3 monopoly_sim.py
 done
