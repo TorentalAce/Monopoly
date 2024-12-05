@@ -3,8 +3,6 @@ from Controllers import Basic_Player_Controller as Basic
 
 """
 Current simplifications:
-	- Mortgaging just sells the property rather than actual mortgage
-		- (Cant buy back either)
 	- Trading and optional selling not yet implemented since Basic controller will never
 	use these options
 
@@ -12,6 +10,7 @@ Current Player-Controlled Decisions:
 	- Stay in jail or pay to leave
 	- Buying a property
 	- Buying houses
+	- Unmortgaging
 	- Mortgaging (forced selling)
 	- Optional Selling (will handle properties & houses)
 	- Selling houses
@@ -23,6 +22,11 @@ How decisions are handled:
 	- Buying a property - If True, buys the property, if False, goes to auction
 	- Buying houses - Buys houses for the property returned, keeps asking until no more 
 	elligible properties, or none is returned
+	- Unmortgaging - Gives the controller a list of all properties the player can unmortgage
+		- Theres two types for this, either optional unmortgage which has all properties unmortgaged
+		that the player owns at the moment
+		- The other is unmortgaging off of bankruptcy or trading (when trading is implemented),
+		where after a mortgaged property moves owners the new owner has the option to unmortgage
 	- Mortgaging - Prompts to sell both properties, and houses (with properties prompted first),
 	continues until costs are covered
 	- Optional Selling - NYI (Not yet implemented), will work similar to mortgaging, 
@@ -36,8 +40,7 @@ How decisions are handled:
 
 Current (known) errors/need to change: None!
 
-Todo: 
-Work on mortgage next
+Todo: Add data export
 """
 
 #--Player Functions (defined here to change controllers easily)--
@@ -90,6 +93,22 @@ def house_buy_decision(player):
 		final_props = temp.copy()
 		#If the array is empty here, break
 		if len(final_props) == 0: break
+
+def unmortgage_decision(player, properties=[], transfer=False):
+	#This will be the case for the optional, properties will be filled if this is
+	#called from trading or bankruptcy
+	prop_check = player.properties if len(properties) == 0 else properties
+	cost = 5/10 if transfer else 6/10
+	unmortgaged_props = []
+	for prop in prop_check:
+		if prop.mortgaged and prop.buy_cost*cost < player.money: unmortgaged_props.append(prop)
+	if len(unmortgaged_props) == 0: return
+
+	to_unmortgage = Basic.unmortgage_decision(unmortgaged_props)
+	if to_unmortgage: player.unmortgage(to_unmortgage)
+	else: return
+	unmortgaged_props.remove(to_unmortgage)
+	unmortgage_decision(player, unmortgaged_props, transfer)
 
 #This logic basically lets the player mortgage properties that dont have houses on them, 
 #and then asks for properties with houses, if all the houses in a group are sold, it
@@ -174,8 +193,7 @@ class grouping:
 		self.properties = []
 		self.house_cost = house_cost
 		self.all_owned = False 
-		#This will need to be updated (or checked) whenever a property is bought/sold/traded
-		#Bought is handled in buying_handler, sold is handled in player.sell, trading not yet implemented
+		#Only way this becomes false after being true is if properties are traded seperately
 
 	def owned_check(self, player):
 		for prop in self.properties:
@@ -227,12 +245,15 @@ class player:
 		self.in_jail = False
 		self.turns_in_jail = 0
 
+	def unmortgage(self, property):
+		self.money -= property.buy_cost/2 + property.buy_cost * 0.1
+		self.net_worth += property.buy_cost/2
+		property.mortgaged = False
+
 	def sell(self, property):
-		self.properties.remove(property)
 		self.money += property.buy_cost/2
 		self.net_worth -= property.buy_cost/2
-		property.owned_by = None
-		property.group.all_owned = False
+		property.mortgaged = True
 
 	def house_sell(self, property, amount):
 		self.net_worth -= amount * property.group.house_cost/2
@@ -249,12 +270,16 @@ class player:
 	def bankrupted(self, other=None):
 		if other:
 			other.money += self.money
+			mortgaged_props = []
 			for i in self.properties:
 				other.properties.append(i)
 				i.owned_by = other
 				other.net_worth += i.buy_cost / 2
+				if i.mortgaged: mortgaged_props.append(i)
+			mortgage_transfer_payment(other, mortgaged_props)
 			self.properties = []
 			other.gooj_card.append(self.gooj_card)
+			unmortgage_decision(other, mortgaged_props, True)
 		else:
 			for i in self.properties:
 				self.sell(i)
@@ -430,7 +455,9 @@ def turn(player, board, doubles_num=0):
 				else:
 					auction_trigger(player, square)
 			elif square.owned_by != player:
-				if square.group.name == "Utility":
+				if square.mortgaged:
+					pass
+				elif square.group.name == "Utility":
 					if square.group.all_owned:
 						rent_cost = (roll()[0]) * 10
 					else:
@@ -447,13 +474,16 @@ def turn(player, board, doubles_num=0):
 					else:
 						rent_cost = square.rent_cost
 
-				payment_handler(player, rent_cost, square.owned_by)
+				if not square.mortgaged:
+					payment_handler(player, rent_cost, square.owned_by)
 
 	if not player.bankrupt: #Make sure the player didnt go bankrupt above
 		#At this point decisions can be made about buying houses, selling properties/bldgs, and trading
-		optional_sell_decision(player)
+		optional_sell_decision(player) #Always false for now
 
-		trading_decision(player)
+		trading_decision(player) #Always false for now
+
+		unmortgage_decision(player)
 
 		house_buy_decision(player)
 
@@ -504,6 +534,8 @@ def even_buy_check(group):
 	properties_available = []
 	
 	for property in group.properties:
+		if property.mortgaged:
+			return []
 		if property.houses < lowest_houses:
 			lowest_houses = property.houses
 			properties_available = [property]
@@ -602,14 +634,18 @@ def card_handler(player, deck_name):
 
 				square = board[player.position]
 				if square.owned_by and square.owned_by != player:
-					if square.group.all_owned:
+					if square.mortgaged:
+						pass
+					elif square.group.all_owned:
 						if square.houses == 0:
 							rent_cost = square.rent_cost*2
 						else:
 							rent_cost = square.housing[square.houses-1]
 					else:
 						rent_cost = square.rent_cost
-					payment_handler(player, rent_cost, square.owned_by)
+
+					if not square.mortgaged:
+						payment_handler(player, rent_cost, square.owned_by)
 				elif not square.owned_by: #If not owned
 					if player.money > square.buy_cost:
 						buy_decision(player=player, property=square)
@@ -626,14 +662,17 @@ def card_handler(player, deck_name):
 
 				square = board[player.position]
 				if square.owned_by and square.owned_by != player:
-					if square.group.all_owned:
+					if square.mortgaged:
+						pass
+					elif square.group.all_owned:
 						if square.houses == 0:
 							rent_cost = square.rent_cost*2
 						else:
 							rent_cost = square.housing[square.houses-1]
 					else:
 						rent_cost = square.rent_cost
-					payment_handler(player, rent_cost, square.owned_by)
+					if not square.mortgaged:
+						payment_handler(player, rent_cost, square.owned_by)
 				elif not square.owned_by: #If not owned
 					if player.money > square.buy_cost:
 						buy_decision(player=player, property=square)
@@ -653,7 +692,7 @@ def card_handler(player, deck_name):
 					player.position = 12
 
 				square = board[player.position]
-				if square.owned_by and square.owned_by != player:
+				if square.owned_by and square.owned_by != player and not square.mortgaged:
 					rent_cost = roll()[0] * 10
 					payment_handler(player, rent_cost, square.owned_by)
 				elif not square.owned_by: #If not owned
@@ -687,7 +726,7 @@ def card_handler(player, deck_name):
 					player.position = 5
 
 				square = board[player.position]
-				if square.owned_by and square.owned_by != player:
+				if square.owned_by and square.owned_by != player and not square.mortgaged:
 					rr_owned = sum(1 for i in square.group.properties if i.owned_by == square.owned_by)
 					rent_cost = 25 * (2**(rr_owned-1)) * 2
 					payment_handler(player, rent_cost, square.owned_by)
@@ -715,14 +754,18 @@ def card_handler(player, deck_name):
 				elif player.position == 19: #New york ave.
 					square = board[player.position]
 					if square.owned_by and square.owned_by != player:
-						if square.group.all_owned:
+						if square.mortgaged:
+							pass
+						elif square.group.all_owned:
 							if square.houses == 0:
 								rent_cost = square.rent_cost*2
 							else:
 								rent_cost = square.housing[square.houses-1]
 						else:
 							rent_cost = square.rent_cost
-						payment_handler(player, rent_cost, square.owned_by)
+
+						if not square.mortgaged:
+							payment_handler(player, rent_cost, square.owned_by)
 					elif not square.owned_by: #If not owned
 						if player.money > square.buy_cost:
 							buy_decision(player=player, property=square)
@@ -748,7 +791,7 @@ def card_handler(player, deck_name):
 				player.money += 200
 				player.position = 5
 				square = board[player.position]
-				if square.owned_by and square.owned_by != player:
+				if square.owned_by and square.owned_by != player and not square.mortgaged:
 					rr_owned = sum(1 for i in square.group.properties if i.owned_by == square.owned_by)
 					rent_cost = 25 * (2**(rr_owned-1))
 					payment_handler(player, rent_cost, square.owned_by)
@@ -772,14 +815,18 @@ def card_handler(player, deck_name):
 				player.position = 39
 				square = board[player.position]
 				if square.owned_by and square.owned_by != player:
-					if square.group.all_owned:
+					if square.mortgaged:
+						pass
+					elif square.group.all_owned:
 						if square.houses == 0:
 							rent_cost = square.rent_cost*2
 						else:
 							rent_cost = square.housing[square.houses-1]
 					else:
 						rent_cost = square.rent_cost
-					payment_handler(player, rent_cost, square.owned_by)
+
+					if not square.mortgaged:
+						payment_handler(player, rent_cost, square.owned_by)
 				elif not square.owned_by: #If not owned
 					if player.money > square.buy_cost:
 						buy_decision(player=player, property=square)
@@ -817,6 +864,11 @@ def card_handler(player, deck_name):
 
 	return double_end_check
 
+#Called during bankruptcy or trade for mortgaged properties
+def mortgage_transfer_payment(player, properties):
+	for prop in properties:
+		payment_handler(player, prop.buy_cost*1/10)
+
 #------------DEBUG FUNCTIONS---------------
 #Shows current board state
 def print_board():
@@ -846,7 +898,7 @@ def print_houses():
 #Shows the properties and houses for the person
 def print_property_info(player):
 	for prop in player.properties:
-		print(f"Person: {player.name}, Name: {prop.name}, Houses: {prop.houses}")
+		print(f"Person: {player.name}, Name: {prop.name}, Houses: {prop.houses}, Mortgage Status: {prop.mortgaged}")
 
 #----------Praying things work-------------
 if __name__ == "__main__":
@@ -875,9 +927,27 @@ if __name__ == "__main__":
 			print(f"This game took: {turns} turns over {rounds} rounds")
 			break
 		if rounds == 1000:
-			string_players = ""
 			for player in players:
-				string_players += player.name + ", "
-			print(f"The game last too long going for {turns} turns over {rounds} rounds")
-			print(f"The remaining players are: {string_players[:-2]}")
+				for prop in player.properties:
+					player.net_worth += prop.buy_cost/2
+
+			best_networth = None
+			tie = []
+			for player in players:
+				if not best_networth: 
+					best_networth = player
+					tie = [player]
+				elif player.net_worth > best_networth.net_worth:
+					best_networth = player
+					tie = [player]
+				elif player.net_worth == best_networth.net_worth:
+					tie.append(player)
+
+			if len(tie) == 1:
+				print(f"Round limit reached, {best_networth.name} wins with the highest net worth!")
+			else:
+				string_to_print = ""
+				for player in tie:
+					string_to_print += player.name + ", "
+				print(f"Round limit reached, there was a tie for the highest net worth between: {string_to_print[:-2]}!")
 			break

@@ -10,5 +10,4 @@ This project aims to look at monopoly games simulated by different AI and condit
 - Additionally, as more controllers are added and game options, command-line parameters will be added to account for them.
 
 Currently the game functions akin to a normal game of Monopoly, with the following simplifications:
-- Mortgaging currently functions as just selling the property back to the bank
 - Trading/Voluntary selling has no functionality (as the base AI wouldn't use it anyway as per the specifications)

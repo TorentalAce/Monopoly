@@ -8,6 +8,7 @@ keep up with the gain from cards/go)
 Jail - Always pay to leave (unless you would need to mortgage)
 Property Buying - Always purchase a property if able
 House Buying - Always tries to buy on the most expensive it can
+Unmortgaging - Always tries to unmortgage the most expensive option
 Mortgage - Sell the least valuable property first, always try to sell properties before selling houses
 Optional Sell - Never voluntarily sell
 Selling Houses - Sell the least valuable houses if possible
@@ -24,15 +25,9 @@ def jail_decision(player, jail_card=[]):
 def buy_decision(player, property=None):
 	return True
 
-"""
-Takes a list of elligible properties that you can buy houses on
-Returns a property to buy houses on (or none)
-Elligible properties are properties that fulfill the following:
-	a) all properties in the group are owned by the same player
-	b) house cost < player money
-	c) lowest amount of houses within the group
-	d) less than 5 houses (a hotel)
-"""
+#Always tries to unmortgage the most expensive property
+def unmortgage_decision(properties):
+	return max(properties, key=lambda x: x.buy_cost)
 
 #Always buy the most expensive possible
 def house_buy_decision(player, properties):
