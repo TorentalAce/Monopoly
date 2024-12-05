@@ -34,11 +34,9 @@ How decisions are handled:
 		what to trade (if at all), with another decision on the incoming end on whether
 		to accept, reject, or counteroffer
 
-Current (known) errors/need to change: 
-- permanent loop issue in mortgage_decision/house_sell rarely (no clue what this one is)
+Current (known) errors/need to change: None!
 
 Todo: 
-Find&Fix the perma loop error
 Work on mortgage next
 """
 
@@ -141,7 +139,7 @@ def house_sell_decision(player, cost):
 				temp.append(property)
 		available_list += temp
 
-	while cost > player.money and len(available_list) > 0:
+	while cost >= player.money and len(available_list) > 0:
 		prop_to_sell = Basic.house_sell_decision(player, available_list)
 		player.house_sell(prop_to_sell, 1)
 		available_list.remove(prop_to_sell)
@@ -761,7 +759,7 @@ def card_handler(player, deck_name):
 						auction_trigger(player, square)
 			else:
 				for i in players:
-					if i != player: payment_handler(i, 50, player)
+					if i != player: payment_handler(i, 10, player)
 
 		case 11: #Pay $15 / Collect $100
 			if deck == chance_cards:
@@ -794,6 +792,8 @@ def card_handler(player, deck_name):
 			if deck == chance_cards:
 				for i in players:
 					if i != player: payment_handler(player, 50, i)
+					if player.bankrupt:
+						break
 			else:
 				payment_handler(player, 50)
 
