@@ -42,10 +42,11 @@ CSV File important info exported:
 Will need to collect data for the following:
 	- Payments
 	- Buying
-	- Selling *
+	- Selling **
 	- Jail
 	- Trading *
 * - Not implemented yet
+** - Optional (both houses & property) not yet implemented
 
 For single game:
 	- Payments table:
@@ -69,7 +70,8 @@ For single game:
 		- Player
 		- Property
 		- Sold for
-		- Classification (Mortgage/House - Forced&Optional [4 in total])
+		- Classification (mortgage/house - forced&optional [4 in total])
+			- Right now, just mortgage/house, since only forced is implemented
 		- Round & Turn counters
 
 	- Jail:
@@ -306,6 +308,13 @@ class player:
 		self.money += property.buy_cost/2
 		self.net_worth -= property.buy_cost/2
 		property.mortgaged = True
+		sell_table.append({
+			"Player": self.name,
+			"Property": property.name,
+			"Selling Price": property.buy_cost/2,
+			"Classification": "mortgage",
+			"Round": rounds,
+			"Turn": turns})
 
 	def house_sell(self, property, amount):
 		self.net_worth -= amount * property.group.house_cost/2
@@ -318,6 +327,14 @@ class player:
 
 		house_bank["houses"] += amount
 		property.houses -= amount
+
+		sell_table.append({
+			"Player": self.name,
+			"Property": property.name,
+			"Selling Price": property.group.house_cost/2,
+			"Classification": "house",
+			"Round": rounds,
+			"Turn": turns})
 
 	def bankrupted(self, other=None):
 		if other:
@@ -996,7 +1013,7 @@ def print_property_info(player):
 
 #-----------EXPORT FUNCTIONS---------------
 def single_game_export():
-	#print(str(buy_table))
+	#print(str(sell_table))
 	pass
 
 #----------PRAYING THINGS WORK-------------
