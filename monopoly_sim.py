@@ -41,13 +41,11 @@ How decisions are handled:
 CSV File important info exported:
 Will need to collect data for the following:
 	- Payments
-	- Property buying
-		- Normal*, auctions*, houses*
-	- Property selling
-		- Forced mortgaging*, optional mortgaging*, houses*
-	- Jail*
-	- Trading*
-* - Not implemented yet, will likely combine some of these tables
+	- Buying *
+	- Selling *
+	- Jail
+	- Trading *
+* - Not implemented yet
 
 For single game:
 	- Payments table:
@@ -56,17 +54,32 @@ For single game:
 		- What property
 		- Cost
 		- Bankrupted?
-		- Round counter
-		- Turn counter
+		- Round & Turn counters
 
-	Hypothesized:
-	- Property table:
-		- Rounds bought
-		- Rounds mortgaged/unmortgaged
-		- Rounds bought/sold houses + how many
-		- Owned by
-		- # of times landed on
-		- Total rent paid from it
+	- Buying table:
+		- Player
+		- Property
+		- Cost
+		- Net over/under buy cost (will be 0 unless auction)
+			- 0 for house buy & unmortgage as well
+		- Classification (Purchase/auction/house/unmortgage)
+		- Round & Turn counters
+
+	- Selling table:
+		- Player
+		- Property
+		- Sold for
+		- Classification (Mortgage/House - Forced&Optional [4 in total])
+		- Round & Turn counters
+
+	- Jail:
+		- Player
+		- Rounds elapsed
+		- Classification (Get out of jail free card/Optional&Forced pay/doubles/stay)
+			- Labeled as: Card/Optional/Forced/Doubles/Stay
+		- Round & Turn counters
+
+	- Trading (tbd)
 
 Current (known) errors/need to change: None!
 
@@ -579,30 +592,50 @@ def even_buy_check(group):
 
 #Handles the jail stuff
 def jail_handler(player):
+	classification = ""
+	rounds_elapsed = 0
+	end_result = (0, False)
 	choice = jail_decision(player)
 	if type(choice) == dict:
 		player.gooj_card.remove(choice)
 		choice["gooj_owned"] = False
+		rounds_elapsed = player.turns_in_jail
 		player.leaveJail()
-		return roll()
+		classification = "Card"
+		end_result = roll()
 	elif choice and player.money > 50:
 		player.money -= 50
+		rounds_elapsed = player.turns_in_jail
 		player.leaveJail()
-		return roll()
+		classification = "Optional"
+		end_result = roll()
 	else:
 		if roll()[1]:
+			rounds_elapsed = player.turns_in_jail
 			player.leaveJail()
-			return roll()[0], False
+			classification = "Doubles"
+			end_result = (roll()[0], False)
 		elif player.turns_in_jail == 2:
 			payment_handler(player, 50)
+			rounds_elapsed = player.turns_in_jail
 			player.leaveJail()
-			if player.bankrupt:
-				return 0, False
-			else:
-				return roll()
-		else: 
+			classification = "Forced"
+			if not player.bankrupt:
+				end_result = roll()
+		else:
+			rounds_elapsed = player.turns_in_jail
 			player.turns_in_jail += 1
-			return 0, False
+			classification = "Stay"
+
+	jail_table.append({
+		"Player": player.name,
+		"Rounds Elapsed": rounds_elapsed,
+		"Classification": classification,
+		"Rounds": rounds,
+		"Turns": turns
+		})
+
+	return end_result
 
 #Handles payments
 def payment_handler(player, payment, paying=None):
@@ -945,13 +978,13 @@ def print_property_info(player):
 
 #-----------EXPORT FUNCTIONS---------------
 def single_game_export():
-	#print(str(payment_table))
+	#print(str(jail_table))
 	pass
 
 #----------PRAYING THINGS WORK-------------
 if __name__ == "__main__":
 	global board, players, house_bank, chance_cards, cc_cards, turns, rounds
-	global bankruptcy_table, property_table #For excel export
+	global payment_table, buy_table, sell_table, jail_table #For excel export
 	board = []
 	players = []
 	house_bank = {
@@ -961,7 +994,9 @@ if __name__ == "__main__":
 	chance_cards = {"used": 0, "gooj_owned": False}
 	cc_cards = {"used": 0, "gooj_owned": False}
 	payment_table = []
-	property_table = []
+	buy_table = []
+	sell_table = []
+	jail_table = []
 	initialize_game()
 	turns = 0
 	rounds = 0
