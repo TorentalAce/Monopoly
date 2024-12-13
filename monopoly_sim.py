@@ -1,4 +1,4 @@
-import random
+import random, csv
 from Controllers import Basic_Player_Controller as Basic
 
 """
@@ -38,12 +38,43 @@ How decisions are handled:
 		what to trade (if at all), with another decision on the incoming end on whether
 		to accept, reject, or counteroffer
 
+CSV File important info exported:
+Will need to collect data for the following:
+	- Payments
+	- Property buying
+		- Normal*, auctions*, houses*
+	- Property selling
+		- Forced mortgaging*, optional mortgaging*, houses*
+	- Jail*
+	- Trading*
+* - Not implemented yet, will likely combine some of these tables
+
+For single game:
+	- Payments table:
+		- Player paying
+		- To whom
+		- What property
+		- Cost
+		- Bankrupted?
+		- Round counter
+		- Turn counter
+
+	Hypothesized:
+	- Property table:
+		- Rounds bought
+		- Rounds mortgaged/unmortgaged
+		- Rounds bought/sold houses + how many
+		- Owned by
+		- # of times landed on
+		- Total rent paid from it
+
 Current (known) errors/need to change: None!
 
-Todo: Add data export
+Todo: Data export implementations
+	  Move most of the info here into the Readme + with the controller
 """
 
-#--Player Functions (defined here to change controllers easily)--
+#-----------PLAYER FUNCTIONS-----------
 def jail_decision(player):
 	#True if leaving, false if rolling
 	return Basic.jail_decision(player, player.gooj_card)
@@ -277,16 +308,18 @@ class player:
 				other.net_worth += i.buy_cost / 2
 				if i.mortgaged: mortgaged_props.append(i)
 			mortgage_transfer_payment(other, mortgaged_props)
-			self.properties = []
 			other.gooj_card.append(self.gooj_card)
 			unmortgage_decision(other, mortgaged_props, True)
 		else:
 			for i in self.properties:
-				self.sell(i)
+				i.owned_by = None
+				i.houses = 0
+				i.group.all_owned = False
 		self.money = 0
 		self.net_worth = 0
 		self.gooj_card = []
 		self.bankrupt = True
+		self.properties = []
 		players.remove(self)
 
 #------------GAME FUNCTIONS---------------
@@ -582,6 +615,16 @@ def payment_handler(player, payment, paying=None):
 		player.money -= payment
 		if paying:
 			paying.money += payment
+
+	payment_table.append({
+		"Player Paying": player.name,
+		"Paying To": paying.name if paying else "Bank",
+		"Property": board[player.position].name,
+		"Cost": payment,
+		"Bankrupted?": "Yes" if player.bankrupt else "No",
+		"Round": rounds,
+		"Turn": turns
+		})
 
 #Initializes the chance and community chest cards
 def initialize_cards():
@@ -900,9 +943,15 @@ def print_property_info(player):
 	for prop in player.properties:
 		print(f"Person: {player.name}, Name: {prop.name}, Houses: {prop.houses}, Mortgage Status: {prop.mortgaged}")
 
-#----------Praying things work-------------
+#-----------EXPORT FUNCTIONS---------------
+def single_game_export():
+	#print(str(payment_table))
+	pass
+
+#----------PRAYING THINGS WORK-------------
 if __name__ == "__main__":
-	global board, players, house_bank, chance_cards, cc_cards
+	global board, players, house_bank, chance_cards, cc_cards, turns, rounds
+	global bankruptcy_table, property_table #For excel export
 	board = []
 	players = []
 	house_bank = {
@@ -911,6 +960,8 @@ if __name__ == "__main__":
 	}
 	chance_cards = {"used": 0, "gooj_owned": False}
 	cc_cards = {"used": 0, "gooj_owned": False}
+	payment_table = []
+	property_table = []
 	initialize_game()
 	turns = 0
 	rounds = 0
@@ -951,3 +1002,5 @@ if __name__ == "__main__":
 					string_to_print += player.name + ", "
 				print(f"Round limit reached, there was a tie for the highest net worth between: {string_to_print[:-2]}!")
 			break
+
+	single_game_export()
