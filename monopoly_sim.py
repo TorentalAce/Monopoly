@@ -41,7 +41,7 @@ How decisions are handled:
 CSV File important info exported:
 Will need to collect data for the following:
 	- Payments
-	- Buying *
+	- Buying
 	- Selling *
 	- Jail
 	- Trading *
@@ -62,7 +62,7 @@ For single game:
 		- Cost
 		- Net over/under buy cost (will be 0 unless auction)
 			- 0 for house buy & unmortgage as well
-		- Classification (Purchase/auction/house/unmortgage)
+		- Classification (purchase/auction/house/unmortgage)
 		- Round & Turn counters
 
 	- Selling table:
@@ -76,7 +76,7 @@ For single game:
 		- Player
 		- Rounds elapsed
 		- Classification (Get out of jail free card/Optional&Forced pay/doubles/stay)
-			- Labeled as: Card/Optional/Forced/Doubles/Stay
+			- Labeled as: card/optional/forced/doubles/stay
 		- Round & Turn counters
 
 	- Trading (tbd)
@@ -221,7 +221,7 @@ def house_sell_decision(player, cost):
 
 def auction_decision(player, property, bid):
 	#Returns the bid the player is making, just returns the inputed bid if no bid is made
-	return Basic.auction_decision(i, property, bid)
+	return Basic.auction_decision(player, property, bid)
 
 #This one will end up having two decisions within it on the controller-side,
 #one for who to trade with and the other for what to trade
@@ -293,6 +293,14 @@ class player:
 		self.money -= property.buy_cost/2 + property.buy_cost * 0.1
 		self.net_worth += property.buy_cost/2
 		property.mortgaged = False
+		buy_table.append({
+			"Player": self.name,
+			"Property": property.name,
+			"Cost": property.buy_cost/2 + property.buy_cost * 0.1,
+			"Net Difference": 0,
+			"Classification": "unmortgage",
+			"Round": rounds,
+			"Turn": turns})
 
 	def sell(self, property):
 		self.money += property.buy_cost/2
@@ -542,21 +550,21 @@ def auction_trigger(player, property):
 	start = players_in.index(player)
 	players_in = players_in[start:] + players_in[:start]
 	bid = 10
-	while True:
+	while len(players_in) > 1:
 		for i in players_in:
 			prev_bid = bid
 			bid = auction_decision(i, property, bid)
 			if bid >= i.money or bid == prev_bid:
 				players_in.remove(i)
 				bid = prev_bid
-		if len(players_in) == 1:
-			#The last player in buys here
-			buying_handler(players_in[0], property, bid)
-			break
+
+	#The last player in buys here
+	buying_handler(players_in[0], property, bid, auction=True)
 
 #Handles buying a property (for both normal buying and auctions)
 #Also checks to see if the player now owns the entire group
-def buying_handler(player, property, cost, house_buy=False):
+def buying_handler(player, property, cost, house_buy=False, auction=False):
+	classification = ""
 	if cost < player.money:
 		if house_buy:
 			key_check = "hotels" if property.houses == 4 else "houses"
@@ -566,12 +574,22 @@ def buying_handler(player, property, cost, house_buy=False):
 				house_bank[key_check] -= 1
 			property.houses += 1
 			player.net_worth += cost/2
+			classification = "house"
 		else:
 			player.properties.append(property)
 			property.owned_by = player
 			property.group.owned_check(player)
 			player.net_worth += property.buy_cost/2 #Can't just use cost in case auction was called
+			classification = "purchase" if auction else "auction"
 		player.money -= cost
+		buy_table.append({
+			"Player": player.name,
+			"Property": property.name,
+			"Cost": cost,
+			"Net Difference": property.buy_cost - cost if classification == "auction" else 0,
+			"Classification": classification,
+			"Round": rounds,
+			"Turn": turns})
 		return True
 
 #Helper function since have to buy houses evenly
@@ -601,38 +619,38 @@ def jail_handler(player):
 		choice["gooj_owned"] = False
 		rounds_elapsed = player.turns_in_jail
 		player.leaveJail()
-		classification = "Card"
+		classification = "card"
 		end_result = roll()
 	elif choice and player.money > 50:
 		player.money -= 50
 		rounds_elapsed = player.turns_in_jail
 		player.leaveJail()
-		classification = "Optional"
+		classification = "optional"
 		end_result = roll()
 	else:
 		if roll()[1]:
 			rounds_elapsed = player.turns_in_jail
 			player.leaveJail()
-			classification = "Doubles"
+			classification = "doubles"
 			end_result = (roll()[0], False)
 		elif player.turns_in_jail == 2:
 			payment_handler(player, 50)
 			rounds_elapsed = player.turns_in_jail
 			player.leaveJail()
-			classification = "Forced"
+			classification = "forced"
 			if not player.bankrupt:
 				end_result = roll()
 		else:
 			rounds_elapsed = player.turns_in_jail
 			player.turns_in_jail += 1
-			classification = "Stay"
+			classification = "stay"
 
 	jail_table.append({
 		"Player": player.name,
 		"Rounds Elapsed": rounds_elapsed,
 		"Classification": classification,
-		"Rounds": rounds,
-		"Turns": turns
+		"Round": rounds,
+		"Turn": turns
 		})
 
 	return end_result
@@ -978,7 +996,7 @@ def print_property_info(player):
 
 #-----------EXPORT FUNCTIONS---------------
 def single_game_export():
-	#print(str(jail_table))
+	#print(str(buy_table))
 	pass
 
 #----------PRAYING THINGS WORK-------------
