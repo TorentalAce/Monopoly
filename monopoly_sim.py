@@ -142,7 +142,8 @@ def house_sell_decision(player, cost):
 
 def auction_decision(player, property, bid):
 	#Returns the bid the player is making, just returns the inputed bid if no bid is made
-	return Basic.auction_decision(player, property, bid)
+	auction_bid = Basic.auction_decision(player, property, bid)
+	return bid if auction_bid <= bid else auction_bid
 
 #This one will end up having two decisions within it on the controller-side,
 #one for who to trade with and the other for what to trade
