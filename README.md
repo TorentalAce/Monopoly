@@ -36,16 +36,31 @@ Currently the game functions akin to a normal game of Monopoly, with the followi
 ### Decision Handling
 Each decision prompts the player for a response, the following is how each response is handled:
 
-- **Jail** - If True, pays to leave, if False (or doesn't have the money), roll to leave
-- **Buying a property** - If True, buys the property, if False, goes to auction
-- **Buying houses** - Buys houses for the property returned, keeps asking until no more elligible properties, or none is returned
-- **Unmortgaging** - Gives the controller a list of all properties the player can unmortgage
-  - Theres two types for this, either optional unmortgage which has all properties unmortgaged that the player owns at the moment
-  - The other is unmortgaging off of bankruptcy or trading (when trading is implemented), where after a mortgaged property moves owners the new owner has the option to unmortgage
-- **Mortgaging** - Prompts to sell both properties, and houses (with properties prompted first), continues until costs are covered
-- **Optional Selling** - NYI (Not yet implemented), will work similar to mortgaging, but break when None is returned
-- **Auctions** - Prompts for a bid, if the same value is returned as the original bid the player is considered to be 'out' of the auction (or if bid >= player's money)
-- **Trading** - NYI (Not yet implemented)
+- **Jail**
+  - Expects back a boolean response
+  - If True, pays to leave, if False (or doesn't have the money), roll to leave
+- **Buying a property**
+  - Expects back a boolean response
+  - If True, buys the property, if False, goes to auction
+- **Buying houses**
+  - Expects back a property response
+  - Buys a house for the property returned, keeps asking until no more elligible properties, or none is returned
+- **Unmortgaging**
+  - Expects back a property response
+  - Gives the controller a list of all properties the player can unmortgage
+    - Theres two types for this, either optional unmortgage which has all properties unmortgaged that the player owns at the moment
+    - The other is unmortgaging off of bankruptcy or trading (when trading is implemented), where after a mortgaged property moves owners the new owner has the option to unmortgage
+- **Mortgaging**
+  - Expects back a property response
+  - Prompts to sell both properties, and houses (with properties prompted first), continues until costs are covered
+- **Optional Selling**
+  - Expects back a property response
+  - NYI (Not yet implemented), will work similar to mortgaging, but break when None is returned
+- **Auctions**
+  - Expects back an integer response, greater than or equal to the original big provided
+  - Prompts for a bid, if the same value is returned as the original bid the player is considered to be 'out' of the auction (or if bid >= player's money)
+- **Trading**
+  - NYI (Not yet implemented)
   - This one will be tricky, will likely iterate over every player and deciding what to trade (if at all), with another decision on the incoming end on whether to accept, reject, or counteroffer
 
 ### Export Information
