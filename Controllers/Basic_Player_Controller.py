@@ -1,21 +1,5 @@
 import monopoly_sim as ms
 
-"""
-The basic controller will make very bare-bones decisions. Note, this will make most
-games end in a draw (since most times no house groups end up collected, and payments can't
-keep up with the gain from cards/go)
-
-Jail - Always pay to leave (unless you would need to mortgage)
-Property Buying - Always purchase a property if able
-House Buying - Always tries to buy on the most expensive it can
-Unmortgaging - Always tries to unmortgage the most expensive option
-Mortgage - Sell the least valuable property first, always try to sell properties before selling houses
-Optional Sell - Never voluntarily sell
-Selling Houses - Sell the least valuable houses if possible
-Auction - Bet the max bet up to the property's original price, then leave
-Trading - Will never trade
-"""
-
 #Always tries to leave jail as long as doesnt have to sell
 def jail_decision(player, jail_card=[]):
 	if len(jail_card) > 0: return jail_card[0]
