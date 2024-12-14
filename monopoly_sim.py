@@ -1,4 +1,5 @@
-import random, csv
+import random, argparse
+import pandas as pd
 from Controllers import Basic_Player_Controller as Basic
 
 """
@@ -38,7 +39,7 @@ How decisions are handled:
 		what to trade (if at all), with another decision on the incoming end on whether
 		to accept, reject, or counteroffer
 
-CSV File important info exported:
+Excel File important info exported:
 Will need to collect data for the following:
 	- Payments
 	- Buying
@@ -1012,12 +1013,26 @@ def print_property_info(player):
 		print(f"Person: {player.name}, Name: {prop.name}, Houses: {prop.houses}, Mortgage Status: {prop.mortgaged}")
 
 #-----------EXPORT FUNCTIONS---------------
-def single_game_export():
-	#print(str(sell_table))
-	pass
+def single_game_export(fileName):
+	if fileName.find(".") != -1:
+		fileName = fileName[:fileName.find(".")]
+	fileName = f"data/{fileName}.xlsx" if fileName != "" else data/single_game_export.xlsx
+	jailDF = pd.DataFrame(jail_table)
+	paymentDF = pd.DataFrame(payment_table)
+	buyDF = pd.DataFrame(buy_table)
+	sellDF = pd.DataFrame(sell_table)
+	with pd.ExcelWriter('data/single_game_export.xlsx') as writer:
+		jailDF.to_excel(writer, sheet_name='Jail Info', index=False)
+		paymentDF.to_excel(writer, sheet_name='Payment Info', index=False)
+		buyDF.to_excel(writer, sheet_name='Buy Info', index=False)
+		sellDF.to_excel(writer, sheet_name='Sell Info', index=False)
 
 #----------PRAYING THINGS WORK-------------
 if __name__ == "__main__":
+	parser = argparse.ArgumentParser(description="Parse a single argument.")
+	parser.add_argument('argument', type=str, help='A single argument')
+	args = parser.parse_args()
+
 	global board, players, house_bank, chance_cards, cc_cards, turns, rounds
 	global payment_table, buy_table, sell_table, jail_table #For excel export
 	board = []
@@ -1073,4 +1088,4 @@ if __name__ == "__main__":
 				print(f"Round limit reached, there was a tie for the highest net worth between: {string_to_print[:-2]}!")
 			break
 
-	single_game_export()
+	single_game_export(str(args))
