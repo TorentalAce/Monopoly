@@ -215,6 +215,7 @@ class player:
 		self.money -= property.buy_cost/2 + property.buy_cost * 0.1
 		self.net_worth += property.buy_cost/2
 		property.mortgaged = False
+		players_began[self][1] += property.buy_cost/2 + property.buy_cost * 0.1
 		buy_table.append({
 			"Player": self.name,
 			"Property": property.name,
@@ -228,6 +229,7 @@ class player:
 		self.money += property.buy_cost/2
 		self.net_worth -= property.buy_cost/2
 		property.mortgaged = True
+		players_began[self][0] += property.buy_cost/2
 		sell_table.append({
 			"Player": self.name,
 			"Property": property.name,
@@ -239,6 +241,7 @@ class player:
 	def house_sell(self, property, amount):
 		self.net_worth -= amount * property.group.house_cost/2
 		self.money += amount * property.group.house_cost/2
+		players_began[self][0] += amount * property.group.house_cost/2
 
 		if property.houses == 5: #Hotel check
 			house_bank["hotels"] += 1
@@ -273,6 +276,7 @@ class player:
 				i.owned_by = None
 				i.houses = 0
 				i.group.all_owned = False
+		players_began[self][1] += self.money
 		self.money = 0
 		self.net_worth = 0
 		self.gooj_card = []
@@ -422,6 +426,7 @@ def turn(player, board, doubles_num=0):
 			if player.position >= 40:
 				player.money += 200
 				player.position -= 40
+				players_began[player][0] += 200
 
 	#Check what square was landed on and take appropriate action
 	square = board[player.position]
@@ -527,6 +532,7 @@ def buying_handler(player, property, cost, house_buy=False, auction=False):
 			"Classification": classification,
 			"Round": rounds,
 			"Turn": turns})
+		players_began[player][1] += cost
 		return True
 
 #Helper function since have to buy houses evenly
@@ -560,6 +566,7 @@ def jail_handler(player):
 		end_result = roll()
 	elif choice and player.money > 50:
 		player.money -= 50
+		players_began[player][1] += 50
 		rounds_elapsed = player.turns_in_jail
 		player.leaveJail()
 		classification = "optional"
@@ -600,8 +607,10 @@ def payment_handler(player, payment, paying=None):
 		if player.money <= payment:
 			mortgage_decision(player, payment)
 		
+		players_began[player][1] += payment
 		player.money -= payment
 		if paying:
+			players_began[paying][0] += payment
 			paying.money += payment
 
 	payment_table.append({
@@ -656,11 +665,13 @@ def card_handler(player, deck_name):
 		case 0: #Advance to go for both
 			player.position = 0
 			player.money += 200
+			players_began[player][0] += 200
 
 		case 1: #Advance to Illinois Ave. / Collect $200
 			if deck == chance_cards:
 				if player.position > 24:
 					player.money += 200
+					players_began[player][0] += 200
 				player.position = 24
 
 				square = board[player.position]
@@ -684,11 +695,13 @@ def card_handler(player, deck_name):
 						auction_trigger(player, square)
 			else:
 				player.money += 200
+				players_began[player][0] += 200
 
 		case 2: #Advance to St. Charles Place / Pay $50
 			if deck == chance_cards:
 				if player.position > 11:
 					player.money += 200
+					players_began[player][0] += 200
 				player.position = 11
 
 				square = board[player.position]
@@ -716,6 +729,7 @@ def card_handler(player, deck_name):
 			if deck == chance_cards:
 				if player.position > 28:
 					player.money += 200
+					players_began[player][0] += 200
 					player.position = 12
 				elif player.position > 12:
 					player.position = 28
@@ -733,6 +747,7 @@ def card_handler(player, deck_name):
 						auction_trigger(player, square)
 			else:
 				player.money += 50
+				players_began[player][0] += 50
 
 		case 4: #Get out of jail free card
 			player.gooj_card.append(deck)
@@ -746,6 +761,7 @@ def card_handler(player, deck_name):
 			if deck == chance_cards:
 				if player.position > 35:
 					player.money += 200
+					players_began[player][0] += 200
 					player.position = 5
 				elif player.position > 5:
 					player.position = 15
@@ -768,10 +784,12 @@ def card_handler(player, deck_name):
 						auction_trigger(player, square)
 			else:
 				player.money += 100
+				players_began[player][0] += 100
 
 		case 7: #Get $50 / Collect $50 from each player
 			if deck == chance_cards:
 				player.money += 50
+				players_began[player][0] += 50
 			else:
 				for i in players:
 					if i != player: payment_handler(i, 50, player)
@@ -806,6 +824,7 @@ def card_handler(player, deck_name):
 					card_handler(player, "Community Chest")
 			else:
 				player.money += 20
+				players_began[player][0] += 20
 
 		case 9: #Repairs (25/100 / 40/115)
 			if deck == chance_cards:
@@ -820,6 +839,7 @@ def card_handler(player, deck_name):
 		case 10: # Go to Reading Railroad / 10 from each player
 			if deck == chance_cards:
 				player.money += 200
+				players_began[player][0] += 200
 				player.position = 5
 				square = board[player.position]
 				if square.owned_by and square.owned_by != player and not square.mortgaged:
@@ -840,6 +860,7 @@ def card_handler(player, deck_name):
 				payment_handler(player, 15)
 			else:
 				player.money += 100
+				players_began[player][0] += 100
 
 		case 12: #Advance to boardwalk / Pay $50
 			if deck == chance_cards:
@@ -878,14 +899,18 @@ def card_handler(player, deck_name):
 		case 14: #Collect $150 / collect $25
 			if deck == chance_cards:
 				player.money += 150
+				players_began[player][0] += 150
 			else:
 				player.money += 25
+				players_began[player][0] += 25
 
 		case 15: #Collect $10
 			player.money += 10
+			players_began[player][0] += 10
 
 		case 16: #Collect $100
 			player.money += 100
+			players_began[player][0] += 100
 
 	deck[card] = False
 	deck["used"] += 1
@@ -935,25 +960,28 @@ def print_property_info(player):
 def single_game_export(fileName):
 	if fileName.find(".") != -1:
 		fileName = fileName[:fileName.find(".")]
-	fileName = f"data/{fileName}.xlsx" if fileName != "" else data/single_game_export.xlsx
+	fileName = f"data/{fileName}.xlsx" if fileName != "" else "data/single_game_export.xlsx"
 	jailDF = pd.DataFrame(jail_table)
 	paymentDF = pd.DataFrame(payment_table)
 	buyDF = pd.DataFrame(buy_table)
 	sellDF = pd.DataFrame(sell_table)
+	playerDF = pd.DataFrame(player_table)
 	with pd.ExcelWriter('data/single_game_export.xlsx') as writer:
-		jailDF.to_excel(writer, sheet_name='Jail Info', index=False)
+		playerDF.to_excel(writer, sheet_name='Player Info', index=False)
 		paymentDF.to_excel(writer, sheet_name='Payment Info', index=False)
 		buyDF.to_excel(writer, sheet_name='Buy Info', index=False)
 		sellDF.to_excel(writer, sheet_name='Sell Info', index=False)
+		jailDF.to_excel(writer, sheet_name='Jail Info', index=False)
 
 #----------PRAYING THINGS WORK-------------
 if __name__ == "__main__":
-	parser = argparse.ArgumentParser(description="Parse a single argument.")
-	parser.add_argument('argument', type=str, help='A single argument')
+	parser = argparse.ArgumentParser(description="Parse arguments")
+	parser.add_argument('filename', type=str)
+	parser.add_argument('cancelExport', type=bool)
 	args = parser.parse_args()
 
-	global board, players, house_bank, chance_cards, cc_cards, turns, rounds
-	global payment_table, buy_table, sell_table, jail_table #For excel export
+	global board, players, house_bank, chance_cards, cc_cards, turns, rounds, players_began
+	global payment_table, buy_table, sell_table, jail_table, player_table #For excel export
 	board = []
 	players = []
 	house_bank = {
@@ -966,17 +994,33 @@ if __name__ == "__main__":
 	buy_table = []
 	sell_table = []
 	jail_table = []
+	player_table = []
 	initialize_game()
 	turns = 0
 	rounds = 0
 
 	#Runs until the end of the game gets triggered
 	while True:
+		players_began = {}
 		rounds += 1
+		for i in players:
+			players_began[i] = [0, 0] #Will end up being earnings, losses
 		#Goes through the player order for turns
 		for i in players:
 			turns += 1
 			turn(i, board)
+
+		for key in players_began:
+			player_table.append({
+				"Player": key.name,
+				"Money": key.money,
+				"Net Worth": key.net_worth,
+				"Net Earnings": players_began[key][0],
+				"Net Losses": players_began[key][1],
+				"Net Total": players_began[key][0] - players_began[key][1],
+				"Round": rounds
+			})
+
 		if len(players) <= 1:
 			print(f"The winner is: {players[0].name}")
 			print(f"This game took: {turns} turns over {rounds} rounds")
@@ -1007,4 +1051,4 @@ if __name__ == "__main__":
 				print(f"Round limit reached, there was a tie for the highest net worth between: {string_to_print[:-2]}!")
 			break
 
-	single_game_export(str(args))
+	if not bool(args.cancelExport): single_game_export(str(args.filename))

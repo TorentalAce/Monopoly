@@ -4,22 +4,26 @@
 set -e
 
 fileName=""
+cancel=false
 
-while getopts "hf:" flag; do
+while getopts "hf:c" flag; do
  case $flag in
  	h)
 		echo "
 		\nRun the script in the format ./testfile.sh 'Games' -f filename
 		\n - 'Games' paramater is an integer >= 1 that represents the amount of games to run
-		\n - Filename flag is optional to provide a filename for the single game export functionality, 
+		\n - -f flag is optional to provide a filename for the single game export functionality, 
 	- if no filename is provided will default to 'data/single_game_export.xlsx' 
 	- filename automatically is appended data/{filename}.xlsx, so only name needs to be provided.
+		\n - -c flag is optional, will prevent data export and will only run the sim
 		\n\n"
 		exit 1;
 	;;
 	f)
-		fileName = $OPTARG
+		fileName=$OPTARG
 	;;
+	c)
+		cancel=true
  esac
 done
 
@@ -30,5 +34,5 @@ fi
 
 for i in $(seq 1 $1)
 do
-	python3 monopoly_sim.py "$fileName"
+	python3 monopoly_sim.py "$fileName" $cancel
 done
