@@ -6,11 +6,12 @@ To run, navigate to the Monopoly folder and run the following commands:
 
 ```
 chmod +x testfile.sh  
-./testfile.sh games -f filename
+./testfile.sh games [-f filename] [-c] [-h]
 ```
 
  - Games is an integer representing how many games you want to run
  - -f filename is an optional flag to provide a name for the file, will default to a 'data' folder as an xlsx file
+ - -c is an optional flag to cancel data export entirely, and just run the sim
  - -h flag can also be used to provide the same info on command line level
 
 ## Project Overview
@@ -66,15 +67,24 @@ Each decision prompts the player for a response, the following is how each respo
 ### Export Information
 Current single game exports, with each table its own sheet in the file:
 
-**Payments table**
-- Player paying
+**Round-by-Round Player Information Table**
+- Players
+- Money
+- Net worth (doesn't include money)
+- Net earnings
+- Net losses
+- Net total
+- Round counter
+
+**Payments Table**
+- Players paying
 - To whom
 - What property
 - Cost
 - Bankrupted?
 - Round & Turn counters
 
-**Buying table**
+**Buying Table**
 - Player
 - Property
 - Cost
@@ -83,7 +93,7 @@ Current single game exports, with each table its own sheet in the file:
 - Classification (purchase/auction/house/unmortgage)
 - Round & Turn counters
 
-**Selling table**
+**Selling Table**
 - Player
 - Property
 - Sold for
@@ -91,7 +101,7 @@ Current single game exports, with each table its own sheet in the file:
   - Right now, just mortgage/house, since only forced is implemented
 - Round & Turn counters
 
-**Jail**
+**Jail Information Table**
 - Player
 - Rounds elapsed
 - Classification (Get out of jail free card/Optional&Forced pay/doubles/stay)
