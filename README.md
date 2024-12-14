@@ -66,15 +66,24 @@ Each decision prompts the player for a response, the following is how each respo
 ### Export Information
 Current single game exports, with each table its own sheet in the file:
 
-**Payments table**
-- Player paying
+**Round-by-Round Player Information Table**
+- Players
+- Money
+- Net worth (doesn't include money)
+- Net gain
+- Net loss
+- Net total
+- Round counter
+
+**Payments Table**
+- Players paying
 - To whom
 - What property
 - Cost
 - Bankrupted?
 - Round & Turn counters
 
-**Buying table**
+**Buying Table**
 - Player
 - Property
 - Cost
@@ -83,7 +92,7 @@ Current single game exports, with each table its own sheet in the file:
 - Classification (purchase/auction/house/unmortgage)
 - Round & Turn counters
 
-**Selling table**
+**Selling Table**
 - Player
 - Property
 - Sold for
@@ -91,7 +100,7 @@ Current single game exports, with each table its own sheet in the file:
   - Right now, just mortgage/house, since only forced is implemented
 - Round & Turn counters
 
-**Jail**
+**Jail Information Table**
 - Player
 - Rounds elapsed
 - Classification (Get out of jail free card/Optional&Forced pay/doubles/stay)
