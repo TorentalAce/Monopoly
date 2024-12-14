@@ -6,11 +6,12 @@ To run, navigate to the Monopoly folder and run the following commands:
 
 ```
 chmod +x testfile.sh  
-./testfile.sh games -f filename
+./testfile.sh games [-f filename] [-c] [-h]
 ```
 
  - Games is an integer representing how many games you want to run
  - -f filename is an optional flag to provide a name for the file, will default to a 'data' folder as an xlsx file
+ - -c is an optional flag to cancel data export entirely, and just run the sim
  - -h flag can also be used to provide the same info on command line level
 
 ## Project Overview
