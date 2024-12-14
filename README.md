@@ -70,8 +70,8 @@ Current single game exports, with each table its own sheet in the file:
 - Players
 - Money
 - Net worth (doesn't include money)
-- Net gain
-- Net loss
+- Net earnings
+- Net losses
 - Net total
 - Round counter
 
