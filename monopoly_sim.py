@@ -5,7 +5,7 @@ from Controllers import Basic_Player_Controller as Basic
 """
 Current (known) errors/need to change: None!
 
-Todo: -
+Todo: - Event table
 """
 
 #-----------PLAYER FUNCTIONS-----------
@@ -15,7 +15,7 @@ def jail_decision(player):
 
 def buy_decision(player, property=None):
 	if Basic.buy_decision(player, property):
-		buying_handler(player, property, property.buy_cost)
+		buying_handler(player, property, property.buy_cost, lazyCheck = True)
 	else:
 		auction_trigger(player, property)
 
@@ -82,7 +82,7 @@ def mortgage_decision(player, cost):
 	available_list = []
 	houses_list = []
 	for property in player.properties:
-		if property.houses == 0:
+		if property.houses == 0 and not property.mortgaged:
 			yes = True
 			for prop in property.group.properties:
 				if prop.houses != 0:
@@ -179,6 +179,8 @@ class property:
 		self.group = group
 		self.houses = 0
 		self.housing = housing
+		self.total_rent_collected = 0
+		self.auction_price = 0
 		if group:
 			group.properties.append(self)
 
@@ -197,6 +199,8 @@ class player:
 		self.bankrupt = False
 		self.net_worth = 0
 		self.gooj_card = []
+		self.total_rent_collected = 0
+		self.auction_wins = 0
 
 	def __str__(self):
 		property_print = list(map(lambda x: x.name, self.properties))
@@ -207,41 +211,26 @@ class player:
 		self.in_jail = True
 		self.turns_in_jail = 0
 
-	def leaveJail(self):
+	def leaveJail(self, pay=False):
 		self.in_jail = False
 		self.turns_in_jail = 0
+		event_dict(self, board[10], "jail", "leave", 50 if pay else 0, 1, 0)
 
 	def unmortgage(self, property):
 		self.money -= property.buy_cost/2 + property.buy_cost * 0.1
 		self.net_worth += property.buy_cost/2
 		property.mortgaged = False
-		players_began[self][1] += property.buy_cost/2 + property.buy_cost * 0.1
-		buy_table.append({
-			"Player": self.name,
-			"Property": property.name,
-			"Cost": property.buy_cost/2 + property.buy_cost * 0.1,
-			"Net Difference": 0,
-			"Classification": "unmortgage",
-			"Round": rounds,
-			"Turn": turns})
+		event_dict(self, property, "purchase", "unmortgage", property.buy_cost/2 + property.buy_cost * 0.1, 1, property.buy_cost/2)
 
 	def sell(self, property):
 		self.money += property.buy_cost/2
 		self.net_worth -= property.buy_cost/2
 		property.mortgaged = True
-		players_began[self][0] += property.buy_cost/2
-		sell_table.append({
-			"Player": self.name,
-			"Property": property.name,
-			"Selling Price": property.buy_cost/2,
-			"Classification": "mortgage",
-			"Round": rounds,
-			"Turn": turns})
+		event_dict(self, property, "sale", "mortgage", property.buy_cost/2, 1, -property.buy_cost/2)
 
 	def house_sell(self, property, amount):
 		self.net_worth -= amount * property.group.house_cost/2
 		self.money += amount * property.group.house_cost/2
-		players_began[self][0] += amount * property.group.house_cost/2
 
 		if property.houses == 5: #Hotel check
 			house_bank["hotels"] += 1
@@ -250,14 +239,7 @@ class player:
 
 		house_bank["houses"] += amount
 		property.houses -= amount
-
-		sell_table.append({
-			"Player": self.name,
-			"Property": property.name,
-			"Selling Price": property.group.house_cost/2,
-			"Classification": "house",
-			"Round": rounds,
-			"Turn": turns})
+		event_dict(self, property, "sale", "house" if property.houses != 4 else "hotel", amount * property.group.house_cost/2, amount, -amount * property.group.house_cost/2)
 
 	def bankrupted(self, other=None):
 		if other:
@@ -276,7 +258,6 @@ class player:
 				i.owned_by = None
 				i.houses = 0
 				i.group.all_owned = False
-		players_began[self][1] += self.money
 		self.money = 0
 		self.net_worth = 0
 		self.gooj_card = []
@@ -419,6 +400,7 @@ def turn(player, board, doubles_num=0):
 		movement, doubles = roll()
 
 		if doubles_num == 2 and doubles: #If 3 doubles were rolled in a row
+			event_dict(player, board[player.position], "jail", "doubles", 0, 1, 0)
 			player.goToJail()
 			doubles = False
 		else:
@@ -426,19 +408,20 @@ def turn(player, board, doubles_num=0):
 			if player.position >= 40:
 				player.money += 200
 				player.position -= 40
-				players_began[player][0] += 200
+				event_dict(player, board[player.position], "gift", "go", 200, 1, 0)
 
 	#Check what square was landed on and take appropriate action
 	square = board[player.position]
 
 	match square.name:
 		case "Income Tax":
-			payment_handler(player, 200)
+			payment_handler(player, 200, "tax")
 		case "Go To Jail":
+			event_dict(player, board[player.position], "jail", "go_to_jail", 0, 1, 0)
 			player.goToJail()
 			doubles = False
 		case "Luxary Tax":
-			payment_handler(player, 100)
+			payment_handler(player, 100, "tax")
 		case x if x in ("Free Parking", "Jail", "Go"):
 			pass
 		case x if x in ("Community Chest", "Chance"):
@@ -471,7 +454,7 @@ def turn(player, board, doubles_num=0):
 						rent_cost = square.rent_cost
 
 				if not square.mortgaged:
-					payment_handler(player, rent_cost, square.owned_by)
+					payment_handler(player, rent_cost, "rent", square.owned_by)
 
 	if not player.bankrupt: #Make sure the player didnt go bankrupt above
 		#At this point decisions can be made about buying houses, selling properties/bldgs, and trading
@@ -492,21 +475,41 @@ def auction_trigger(player, property):
 	start = players_in.index(player)
 	players_in = players_in[start:] + players_in[:start]
 	bid = 10
+	bidding_round = 0
 	while len(players_in) > 1:
+		bidding_round += 1
 		for i in players_in:
 			prev_bid = bid
 			bid = auction_decision(i, property, bid)
 			if bid >= i.money or bid == prev_bid:
 				players_in.remove(i)
 				bid = prev_bid
-
+			outcome = "Bid" if bid > prev_bid else "Out"
+			auction_table.append({
+				"Property": property.name,
+				"Bidding_Round": bidding_round,
+				"Player": i.name,
+				"Bid": bid,
+				"Player_Balance_After_Bid": i.money - bid if i.money - bid > 0 else 0,
+				"Outcome": outcome
+			})
+	auction_table.append({
+		"Property": property.name,
+		"Bidding_Round": bidding_round,
+		"Player": players_in[0].name,
+		"Bid": bid,
+		"Player_Balance_After_Bid": players_in[0].money - bid,
+		"Outcome": "Won"
+	})
 	#The last player in buys here
 	buying_handler(players_in[0], property, bid, auction=True)
+	players_in[0].auction_wins += 1
+	property.auction_price = bid
+	event_dict(players_in[0], property, "purchase", "auction", bid, 1, property.net_worth/2)
 
 #Handles buying a property (for both normal buying and auctions)
 #Also checks to see if the player now owns the entire group
-def buying_handler(player, property, cost, house_buy=False, auction=False):
-	classification = ""
+def buying_handler(player, property, cost, house_buy=False, auction=False, lazyCheck=False):
 	if cost < player.money:
 		if house_buy:
 			key_check = "hotels" if property.houses == 4 else "houses"
@@ -516,23 +519,15 @@ def buying_handler(player, property, cost, house_buy=False, auction=False):
 				house_bank[key_check] -= 1
 			property.houses += 1
 			player.net_worth += cost/2
-			classification = "house"
+			event_dict(player, property, "purchase", "house" if property.houses != 5 else "hotel", property.group.house_cost, 1, property.group.house_cost/2)
 		else:
 			player.properties.append(property)
 			property.owned_by = player
 			property.group.owned_check(player)
 			player.net_worth += property.buy_cost/2 #Can't just use cost in case auction was called
-			classification = "purchase" if auction else "auction"
+			if lazyCheck:
+				event_dict(player, property, "purchase", "property", cost, 1, cost/2)
 		player.money -= cost
-		buy_table.append({
-			"Player": player.name,
-			"Property": property.name,
-			"Cost": cost,
-			"Net Difference": property.buy_cost - cost if classification == "auction" else 0,
-			"Classification": classification,
-			"Round": rounds,
-			"Turn": turns})
-		players_began[player][1] += cost
 		return True
 
 #Helper function since have to buy houses evenly
@@ -566,9 +561,8 @@ def jail_handler(player):
 		end_result = roll()
 	elif choice and player.money > 50:
 		player.money -= 50
-		players_began[player][1] += 50
 		rounds_elapsed = player.turns_in_jail
-		player.leaveJail()
+		player.leaveJail(True)
 		classification = "optional"
 		end_result = roll()
 	else:
@@ -578,7 +572,7 @@ def jail_handler(player):
 			classification = "doubles"
 			end_result = (roll()[0], False)
 		elif player.turns_in_jail == 2:
-			payment_handler(player, 50)
+			payment_handler(player, 50, "jail")
 			rounds_elapsed = player.turns_in_jail
 			player.leaveJail()
 			classification = "forced"
@@ -590,38 +584,29 @@ def jail_handler(player):
 			classification = "stay"
 
 	jail_table.append({
-		"Player": player.name,
-		"Rounds Elapsed": rounds_elapsed,
-		"Classification": classification,
 		"Round": rounds,
-		"Turn": turns
+		"Player": player.name,
+		"Rounds_Elapsed": rounds_elapsed,
+		"Decision": classification
 		})
 
 	return end_result
 
 #Handles payments
-def payment_handler(player, payment, paying=None):
+def payment_handler(player, payment, type, paying=None):
 	if player.money + player.net_worth <= payment:
+		event_dict(player, board[player.position], "bankrupt", paying.name if paying else "bank", payment, 1, -player.net_worth)
 		player.bankrupted(paying)
 	else:
 		if player.money <= payment:
 			mortgage_decision(player, payment)
-		
-		players_began[player][1] += payment
+
+		event_dict(player, board[player.position], type, paying.name if paying else "bank", payment, 1, 0)
 		player.money -= payment
 		if paying:
-			players_began[paying][0] += payment
+			paying.total_rent_collected += payment
 			paying.money += payment
-
-	payment_table.append({
-		"Player Paying": player.name,
-		"Paying To": paying.name if paying else "Bank",
-		"Property": board[player.position].name,
-		"Cost": payment,
-		"Bankrupted?": "Yes" if player.bankrupt else "No",
-		"Round": rounds,
-		"Turn": turns
-		})
+			board[player.position].total_rent_collected += payment
 
 #Initializes the chance and community chest cards
 def initialize_cards():
@@ -665,13 +650,13 @@ def card_handler(player, deck_name):
 		case 0: #Advance to go for both
 			player.position = 0
 			player.money += 200
-			players_began[player][0] += 200
+			event_dict(player, board[player.position], "gift", "go", 200, 1, 0)
 
 		case 1: #Advance to Illinois Ave. / Collect $200
 			if deck == chance_cards:
 				if player.position > 24:
 					player.money += 200
-					players_began[player][0] += 200
+					event_dict(player, board[player.position], "gift", "go", 200, 1, 0)
 				player.position = 24
 
 				square = board[player.position]
@@ -687,7 +672,7 @@ def card_handler(player, deck_name):
 						rent_cost = square.rent_cost
 
 					if not square.mortgaged:
-						payment_handler(player, rent_cost, square.owned_by)
+						payment_handler(player, rent_cost, "rent", square.owned_by)
 				elif not square.owned_by: #If not owned
 					if player.money > square.buy_cost:
 						buy_decision(player=player, property=square)
@@ -695,13 +680,13 @@ def card_handler(player, deck_name):
 						auction_trigger(player, square)
 			else:
 				player.money += 200
-				players_began[player][0] += 200
+				event_dict(player, board[player.position], "gift", "community_chest", 200, 1, 0)
 
 		case 2: #Advance to St. Charles Place / Pay $50
 			if deck == chance_cards:
 				if player.position > 11:
 					player.money += 200
-					players_began[player][0] += 200
+					event_dict(player, board[player.position], "gift", "go", 200, 1, 0)
 				player.position = 11
 
 				square = board[player.position]
@@ -716,20 +701,20 @@ def card_handler(player, deck_name):
 					else:
 						rent_cost = square.rent_cost
 					if not square.mortgaged:
-						payment_handler(player, rent_cost, square.owned_by)
+						payment_handler(player, rent_cost, "rent", square.owned_by)
 				elif not square.owned_by: #If not owned
 					if player.money > square.buy_cost:
 						buy_decision(player=player, property=square)
 					else:
 						auction_trigger(player, square)
 			else:
-				payment_handler(player, 50)
+				payment_handler(player, 50, "community_chest")
 
 		case 3: #Advance to nearest utility, pay 10x dice roll if owned / Get $50
 			if deck == chance_cards:
 				if player.position > 28:
 					player.money += 200
-					players_began[player][0] += 200
+					event_dict(player, board[player.position], "gift", "go", 200, 1, 0)
 					player.position = 12
 				elif player.position > 12:
 					player.position = 28
@@ -739,7 +724,7 @@ def card_handler(player, deck_name):
 				square = board[player.position]
 				if square.owned_by and square.owned_by != player and not square.mortgaged:
 					rent_cost = roll()[0] * 10
-					payment_handler(player, rent_cost, square.owned_by)
+					payment_handler(player, rent_cost, "rent", square.owned_by)
 				elif not square.owned_by: #If not owned
 					if player.money > square.buy_cost:
 						buy_decision(player=player, property=square)
@@ -747,13 +732,15 @@ def card_handler(player, deck_name):
 						auction_trigger(player, square)
 			else:
 				player.money += 50
-				players_began[player][0] += 50
+				event_dict(player, board[player.position], "gift", "community_chest", 50, 1, 0)
 
 		case 4: #Get out of jail free card
 			player.gooj_card.append(deck)
 			deck["gooj_owned"] = True
 
 		case 5: #Go to jail
+			card_name = "chance" if deck == chance_cards else "community_chest"
+			event_dict(player, board[player.position], "jail", card_name, 0, 1, 0)
 			player.goToJail()
 			double_end_check = True
 
@@ -761,7 +748,7 @@ def card_handler(player, deck_name):
 			if deck == chance_cards:
 				if player.position > 35:
 					player.money += 200
-					players_began[player][0] += 200
+					event_dict(player, board[player.position], "gift", "go", 200, 1, 0)
 					player.position = 5
 				elif player.position > 5:
 					player.position = 15
@@ -776,7 +763,7 @@ def card_handler(player, deck_name):
 				if square.owned_by and square.owned_by != player and not square.mortgaged:
 					rr_owned = sum(1 for i in square.group.properties if i.owned_by == square.owned_by)
 					rent_cost = 25 * (2**(rr_owned-1)) * 2
-					payment_handler(player, rent_cost, square.owned_by)
+					payment_handler(player, rent_cost, "rent", square.owned_by)
 				elif not square.owned_by: #If not owned
 					if player.money > square.buy_cost:
 						buy_decision(player=player, property=square)
@@ -784,22 +771,24 @@ def card_handler(player, deck_name):
 						auction_trigger(player, square)
 			else:
 				player.money += 100
-				players_began[player][0] += 100
+				event_dict(player, board[player.position], "gift", "community_chest", 100, 1, 0)
 
 		case 7: #Get $50 / Collect $50 from each player
 			if deck == chance_cards:
 				player.money += 50
-				players_began[player][0] += 50
+				event_dict(player, board[player.position], "gift", "chance", 200, 1, 0)
 			else:
 				for i in players:
-					if i != player: payment_handler(i, 50, player)
+					if i != player: 
+						payment_handler(i, 50, "community_chest", player)
+						player.total_rent_collected -= 50
 
 		case 8: #Go back 3 spaces / Collect $20
 			if deck == chance_cards:
 				player.position -= 3
 				#Theres only 3 spaces the player can be after this, each handled below
 				if player.position == 4: #Income tax
-					payment_handler(player, 200)
+					payment_handler(player, 200, "tax")
 				elif player.position == 19: #New york ave.
 					square = board[player.position]
 					if square.owned_by and square.owned_by != player:
@@ -814,7 +803,7 @@ def card_handler(player, deck_name):
 							rent_cost = square.rent_cost
 
 						if not square.mortgaged:
-							payment_handler(player, rent_cost, square.owned_by)
+							payment_handler(player, rent_cost, "rent", square.owned_by)
 					elif not square.owned_by: #If not owned
 						if player.money > square.buy_cost:
 							buy_decision(player=player, property=square)
@@ -824,28 +813,30 @@ def card_handler(player, deck_name):
 					card_handler(player, "Community Chest")
 			else:
 				player.money += 20
-				players_began[player][0] += 20
+				event_dict(player, board[player.position], "gift", "community_chest", 20, 1, 0)
 
 		case 9: #Repairs (25/100 / 40/115)
 			if deck == chance_cards:
 				house = 25
 				hotel = 100
+				card_name = "chance"
 			else:
 				house = 40
 				hotel = 115
+				card_name = "community_chest"
 			total_cost = sum(house*prop.houses if prop.houses < 5 else hotel for prop in player.properties)
-			payment_handler(player, total_cost)
+			payment_handler(player, total_cost, card_name)
 
 		case 10: # Go to Reading Railroad / 10 from each player
 			if deck == chance_cards:
 				player.money += 200
-				players_began[player][0] += 200
+				event_dict(player, board[player.position], "gift", "go", 200, 1, 0)
 				player.position = 5
 				square = board[player.position]
 				if square.owned_by and square.owned_by != player and not square.mortgaged:
 					rr_owned = sum(1 for i in square.group.properties if i.owned_by == square.owned_by)
 					rent_cost = 25 * (2**(rr_owned-1))
-					payment_handler(player, rent_cost, square.owned_by)
+					payment_handler(player, rent_cost, "rent", square.owned_by)
 				elif not square.owned_by: #If not owned
 					if player.money > square.buy_cost:
 						buy_decision(player=player, property=square)
@@ -853,14 +844,16 @@ def card_handler(player, deck_name):
 						auction_trigger(player, square)
 			else:
 				for i in players:
-					if i != player: payment_handler(i, 10, player)
+					if i != player: 
+						payment_handler(i, 10, "community_chest", player)
+						player.total_rent_collected -= 10
 
 		case 11: #Pay $15 / Collect $100
 			if deck == chance_cards:
-				payment_handler(player, 15)
+				payment_handler(player, 15, "chance")
 			else:
 				player.money += 100
-				players_began[player][0] += 100
+				event_dict(player, board[player.position], "gift", "community_chest", 100, 1, 0)
 
 		case 12: #Advance to boardwalk / Pay $50
 			if deck == chance_cards:
@@ -878,39 +871,41 @@ def card_handler(player, deck_name):
 						rent_cost = square.rent_cost
 
 					if not square.mortgaged:
-						payment_handler(player, rent_cost, square.owned_by)
+						payment_handler(player, rent_cost, "rent", square.owned_by)
 				elif not square.owned_by: #If not owned
 					if player.money > square.buy_cost:
 						buy_decision(player=player, property=square)
 					else:
 						auction_trigger(player, square)
 			else:
-				payment_handler(player, 50)
+				payment_handler(player, 50, "community_chest")
 
 		case 13: #Pay each player $50 / Pay $50
 			if deck == chance_cards:
 				for i in players:
-					if i != player: payment_handler(player, 50, i)
+					if i != player: 
+						payment_handler(player, 50, "chance", i)
+						i.total_rent_collected -= 50
 					if player.bankrupt:
 						break
 			else:
-				payment_handler(player, 50)
+				payment_handler(player, 50, "community_chest")
 
 		case 14: #Collect $150 / collect $25
 			if deck == chance_cards:
 				player.money += 150
-				players_began[player][0] += 150
+				event_dict(player, board[player.position], "gift", "chance", 150, 1, 0)
 			else:
 				player.money += 25
-				players_began[player][0] += 25
+				event_dict(player, board[player.position], "gift", "community_chest", 25, 1, 0)
 
 		case 15: #Collect $10
 			player.money += 10
-			players_began[player][0] += 10
+			event_dict(player, board[player.position], "gift", "community_chest", 10, 1, 0)
 
 		case 16: #Collect $100
 			player.money += 100
-			players_began[player][0] += 100
+			event_dict(player, board[player.position], "gift", "community_chest", 100, 1, 0)
 
 	deck[card] = False
 	deck["used"] += 1
@@ -923,7 +918,19 @@ def card_handler(player, deck_name):
 #Called during bankruptcy or trade for mortgaged properties
 def mortgage_transfer_payment(player, properties):
 	for prop in properties:
-		payment_handler(player, prop.buy_cost*1/10)
+		payment_handler(player, prop.buy_cost*1/10, "unmortgage")
+
+def event_dict(player, property, type, t_type, t_a, t_n, net_worth):
+	event_table.append({
+		"Round": rounds,
+		"Player": player.name,
+		"Property": property.name,
+		"Action_Type": type,
+		"Transaction_Type": t_type,
+		"Transaction_Amount": t_a,
+		"Transaction_Number": t_n,
+		"Net_Worth_Change": net_worth
+	})
 
 #------------DEBUG FUNCTIONS---------------
 #Shows current board state
@@ -962,26 +969,26 @@ def single_game_export(fileName):
 		fileName = fileName[:fileName.find(".")]
 	fileName = f"data/{fileName}.xlsx" if fileName != "" else "data/single_game_export.xlsx"
 	jailDF = pd.DataFrame(jail_table)
-	paymentDF = pd.DataFrame(payment_table)
-	buyDF = pd.DataFrame(buy_table)
-	sellDF = pd.DataFrame(sell_table)
 	playerDF = pd.DataFrame(player_table)
+	propertyDF = pd.DataFrame(property_table)
+	auctionDF = pd.DataFrame(auction_table)
+	eventDF = pd.DataFrame(event_table)
 	with pd.ExcelWriter('data/single_game_export.xlsx') as writer:
-		playerDF.to_excel(writer, sheet_name='Player Info', index=False)
-		paymentDF.to_excel(writer, sheet_name='Payment Info', index=False)
-		buyDF.to_excel(writer, sheet_name='Buy Info', index=False)
-		sellDF.to_excel(writer, sheet_name='Sell Info', index=False)
-		jailDF.to_excel(writer, sheet_name='Jail Info', index=False)
+		playerDF.to_excel(writer, sheet_name='Player Information', index=False)
+		propertyDF.to_excel(writer, sheet_name='Property Information', index=False)
+		eventDF.to_excel(writer, sheet_name='Event Tracking Information', index=False)
+		auctionDF.to_excel(writer, sheet_name='Auction Tracking Information', index=False)
+		jailDF.to_excel(writer, sheet_name='Jail Information', index=False)
 
 #----------PRAYING THINGS WORK-------------
 if __name__ == "__main__":
 	parser = argparse.ArgumentParser(description="Parse arguments")
 	parser.add_argument('filename', type=str)
-	parser.add_argument('cancelExport', type=bool)
+	parser.add_argument('cancelExport', type=int)
 	args = parser.parse_args()
 
-	global board, players, house_bank, chance_cards, cc_cards, turns, rounds, players_began
-	global payment_table, buy_table, sell_table, jail_table, player_table #For excel export
+	global board, players, house_bank, chance_cards, cc_cards, rounds
+	global event_table, jail_table, player_table, property_table, auction_table #For excel export
 	board = []
 	players = []
 	house_bank = {
@@ -990,40 +997,61 @@ if __name__ == "__main__":
 	}
 	chance_cards = {"used": 0, "gooj_owned": False}
 	cc_cards = {"used": 0, "gooj_owned": False}
-	payment_table = []
-	buy_table = []
-	sell_table = []
 	jail_table = []
+	event_table = []
 	player_table = []
+	property_table = []
+	auction_table = []
 	initialize_game()
-	turns = 0
 	rounds = 0
 
 	#Runs until the end of the game gets triggered
 	while True:
-		players_began = {}
 		rounds += 1
+		data_players = {}
 		for i in players:
-			players_began[i] = [0, 0] #Will end up being earnings, losses
-		#Goes through the player order for turns
+			data_players[i] = (i.money, i.net_worth)
+
+		#Goes through the player order
 		for i in players:
-			turns += 1
 			turn(i, board)
 
-		for key in players_began:
+		for key in data_players:
 			player_table.append({
+				"Round": rounds,
 				"Player": key.name,
-				"Money": key.money,
-				"Net Worth": key.net_worth,
-				"Net Earnings": players_began[key][0],
-				"Net Losses": players_began[key][1],
-				"Net Total": players_began[key][0] - players_began[key][1],
-				"Round": rounds
+				"Starting_Balance": data_players[key][0],
+				"Starting_Net_Worth": data_players[key][1],
+				"Ending_Balance": key.money,
+				"Ending_Net_Worth": key.net_worth,
+				"Total_Worth_Change": (key.money + key.net_worth) - (data_players[key][0] + data_players[key][1]),
+				"Properties_Owned": len(key.properties),
+				"Properties_Mortgaged": sum(1 for i in key.properties if i.mortgaged),
+				"Mortgaged Value": sum(i.rent_cost/2 for i in key.properties if i.mortgaged),
+				"Houses_Owned": sum(i.houses for i in key.properties),
+				"Total_Rent_Collected": key.total_rent_collected,
+				"Trade_Count": 0,
+				"Auction_Wins": key.auction_wins
+			})
+
+		for prop in board:
+			if not prop.group: continue
+			if prop.mortgaged: status = "mortgaged"
+			elif not prop.group.all_owned: status = "normal"
+			elif prop.houses == 0: status = "group owned"
+			else: status = f"{prop.houses} houses" if prop.houses != 5 else "hotel"
+			property_table.append({
+				"Round": rounds,
+				"Property": prop.name,
+				"Owner": prop.owned_by,
+				"Property_Group": prop.group,
+				"Status": status,
+				"Total_Rent_Collected": prop.total_rent_collected,
+				"Auction_Price": prop.auction_price
 			})
 
 		if len(players) <= 1:
-			print(f"The winner is: {players[0].name}")
-			print(f"This game took: {turns} turns over {rounds} rounds")
+			print(f"The winner is: {players[0].name} in {rounds} rounds")
 			break
 		if rounds == 1000:
 			for player in players:
@@ -1051,4 +1079,6 @@ if __name__ == "__main__":
 				print(f"Round limit reached, there was a tie for the highest net worth between: {string_to_print[:-2]}!")
 			break
 
-	if not bool(args.cancelExport): single_game_export(str(args.filename))
+	event_dict(player, board[player.position], "game_end", "victory", 0, 1, 0)
+
+	if args.cancelExport == 0: single_game_export(str(args.filename))

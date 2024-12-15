@@ -4,7 +4,7 @@
 set -e
 
 fileName=""
-cancel=false
+cancel=0
 
 while getopts "hf:c" flag; do
  case $flag in
@@ -23,7 +23,7 @@ while getopts "hf:c" flag; do
 		fileName=$OPTARG
 	;;
 	c)
-		cancel=true
+		cancel=1
  esac
 done
 
