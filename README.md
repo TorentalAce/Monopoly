@@ -73,7 +73,6 @@ Event table will track the following:
  - Sales (mortgaging, houses - both optional and forced)
  - Payments (both to the bank and to players)
  - Bankruptcies
- - Movements (going to jail, going to another property, etc.)
  - Recieving money from the bank
 
 **Player Information Table**
@@ -84,17 +83,17 @@ Event table will track the following:
 | Round | Property | Owner | Property_Group | Status | Total_Rent_Collected | Auction_Price |
 |---|---|---|---|---|---|---|
 
-**Jail Information Table**
-| Round | Player | Rounds_Elapsed | Decision |
-|---|---|---|---|
-
 **Event Tracking Table**
-| Round | Player | Property | Action_Type | Transaction_Type | Transaction_Amount | Transaction_Number | Balance_Change | Net_Worth_Change | Description |
-|---|---|---|---|---|---|---|---|---|---|
+| Round | Player | Property | Action_Type | Transaction_Type | Transaction_Amount | Transaction_Number | Net_Worth_Change |
+|---|---|---|---|---|---|---|---|
 
 **Auction Tracking Table**
 | Property | Bidding_Round | Player | Bid | Player_Balance_After_Bid | Outcome |
 |---|---|---|---|---|---|
+
+**Jail Information Table**
+| Round | Player | Rounds_Elapsed | Decision |
+|---|---|---|---|
 
 **Trade Tracking Table**
 TBD, will track trades similar to auction, with initial, counteroffers, and acceptance/denials all tracked
