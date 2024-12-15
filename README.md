@@ -65,47 +65,37 @@ Each decision prompts the player for a response, the following is how each respo
   - This one will be tricky, will likely iterate over every player and deciding what to trade (if at all), with another decision on the incoming end on whether to accept, reject, or counteroffer
 
 ### Export Information
-Current single game exports, with each table its own sheet in the file:
+Current single game exports, with each table its own sheet in the file, most tables are self-explanatory via column naming
 
-**Round-by-Round Player Information Table**
-- Players
-- Money
-- Net worth (doesn't include money)
-- Net earnings
-- Net losses
-- Net total
-- Round counter
+Event table will track the following:
+ - Trades
+ - Purchases (properties, auctions, houses, unmortgaging)
+ - Sales (mortgaging, houses - both optional and forced)
+ - Payments (both to the bank and to players)
+ - Bankruptcies
+ - Recieving money from the bank
 
-**Payments Table**
-- Players paying
-- To whom
-- What property
-- Cost
-- Bankrupted?
-- Round & Turn counters
+**Player Information Table**
+| Round | Player | Starting_Balance | Starting_Net_Worth | Ending_Balance | Ending_Net_Worth | Total_Worth_Change | Properties_Owned | Properties_Mortgaged | Mortgaged_Value | Houses_Owned | Total_Rent_Collected | Trade_Count | Auction_Wins |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
 
-**Buying Table**
-- Player
-- Property
-- Cost
-- Net over/under buy cost (will be 0 unless auction)
-  - 0 for house buy & unmortgage as well
-- Classification (purchase/auction/house/unmortgage)
-- Round & Turn counters
+**Property Information Table**
+| Round | Property | Owner | Property_Group | Status | Total_Rent_Collected | Auction_Price |
+|---|---|---|---|---|---|---|
 
-**Selling Table**
-- Player
-- Property
-- Sold for
-- Classification (mortgage/house - forced&optional \[4 in total])
-  - Right now, just mortgage/house, since only forced is implemented
-- Round & Turn counters
+**Event Tracking Table**
+| Round | Player | Property | Action_Type | Transaction_Type | Transaction_Amount | Transaction_Number | Net_Worth_Change |
+|---|---|---|---|---|---|---|---|
+
+**Auction Tracking Table**
+| Property | Bidding_Round | Player | Bid | Player_Balance_After_Bid | Outcome |
+|---|---|---|---|---|---|
 
 **Jail Information Table**
-- Player
-- Rounds elapsed
-- Classification (Get out of jail free card/Optional&Forced pay/doubles/stay)
-  - Labeled as: card/optional/forced/doubles/stay
-- Round & Turn counters
+| Round | Player | Rounds_Elapsed | Decision |
+|---|---|---|---|
+
+**Trade Tracking Table**
+TBD, will track trades similar to auction, with initial, counteroffers, and acceptance/denials all tracked
 
 Note, trading and optional selling yet to be implemented as per simplifications
