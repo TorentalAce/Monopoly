@@ -31,7 +31,7 @@ if __name__ == "__main__":
 	if args.choiceExport != 0:
 		fileName = args.filename
 		if fileName.find(".") != -1:
-				fileName = fileName[:fileName.find(".")]
+			fileName = fileName[:fileName.find(".")]
 
 		if args.choiceExport == 1:
 			fileName = f"data/{fileName}.xlsx" if fileName != "" else "data/single_game_export.xlsx"

@@ -1021,7 +1021,7 @@ def main(choice, n):
 			property_table.append({
 				"Round": rounds,
 				"Property": prop.name,
-				"Owner": prop.owned_by,
+				"Owner": prop.owned_by.name if prop.owned_by else "none",
 				"Property_Group": prop.group.name,
 				"Status": status,
 				"Total_Rent_Collected": prop.total_rent_collected,
