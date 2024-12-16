@@ -980,11 +980,27 @@ def single_game_export(fileName):
 		auctionDF.to_excel(writer, sheet_name='Auction Tracking Information', index=False)
 		jailDF.to_excel(writer, sheet_name='Jail Information', index=False)
 
+def multi_game_export(fileName):
+	if fileName.find(".") != -1:
+		fileName = fileName[:fileName.find(".")]
+	fileName = f"data/{fileName}.xlsx" if fileName != "" else "data/single_game_export.xlsx"
+	jailDF = pd.DataFrame(jail_table)
+	playerDF = pd.DataFrame(player_table)
+	propertyDF = pd.DataFrame(property_table)
+	auctionDF = pd.DataFrame(auction_table)
+	eventDF = pd.DataFrame(event_table)
+	with pd.ExcelWriter('data/single_game_export.xlsx') as writer:
+		playerDF.to_excel(writer, sheet_name='Player Information', index=False)
+		propertyDF.to_excel(writer, sheet_name='Property Information', index=False)
+		eventDF.to_excel(writer, sheet_name='Event Tracking Information', index=False)
+		auctionDF.to_excel(writer, sheet_name='Auction Tracking Information', index=False)
+		jailDF.to_excel(writer, sheet_name='Jail Information', index=False)
+
 #----------PRAYING THINGS WORK-------------
 if __name__ == "__main__":
 	parser = argparse.ArgumentParser(description="Parse arguments")
 	parser.add_argument('filename', type=str)
-	parser.add_argument('cancelExport', type=int)
+	parser.add_argument('choiceExport', type=int)
 	args = parser.parse_args()
 
 	global board, players, house_bank, chance_cards, cc_cards, rounds
@@ -1044,7 +1060,7 @@ if __name__ == "__main__":
 				"Round": rounds,
 				"Property": prop.name,
 				"Owner": prop.owned_by,
-				"Property_Group": prop.group,
+				"Property_Group": prop.group.name,
 				"Status": status,
 				"Total_Rent_Collected": prop.total_rent_collected,
 				"Auction_Price": prop.auction_price
@@ -1053,7 +1069,7 @@ if __name__ == "__main__":
 		if len(players) <= 1:
 			print(f"The winner is: {players[0].name} in {rounds} rounds")
 			break
-		if rounds == 1000:
+		if rounds == 100:
 			for player in players:
 				for prop in player.properties:
 					player.net_worth += prop.buy_cost/2
@@ -1081,4 +1097,5 @@ if __name__ == "__main__":
 
 	event_dict(player, board[player.position], "game_end", "victory", 0, 1, 0)
 
-	if args.cancelExport == 0: single_game_export(str(args.filename))
+	if args.choiceExport == 1: single_game_export(str(args.filename))
+	elif args.choiceExport == 2: multi_game_export(str(args.filename))
