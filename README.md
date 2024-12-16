@@ -68,7 +68,7 @@ Each decision prompts the player for a response, the following is how each respo
   - This one will be tricky, will likely iterate over every player and deciding what to trade (if at all), with another decision on the incoming end on whether to accept, reject, or counteroffer
 
 ### Export Information
-Current single game exports, with each table its own sheet in the file, most tables are self-explanatory via column naming
+Current single game exports, with each table its own sheet in the file, most tables are self-explanatory via column naming. Multi-game exports are the same but with an added column to designate game number.
 
 Event table will track the following:
  - Trades
