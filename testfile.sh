@@ -34,7 +34,4 @@ if ! [[ $games =~ ^[0-9]+$ ]] || (( $games == 0 )); then
 	exit 1;
 fi
 
-for i in $(seq 1 $games)
-do
-	python3 monopoly_sim.py "$fileName" $choice
-done
+python3 monopoly.py "$fileName" $choice $games

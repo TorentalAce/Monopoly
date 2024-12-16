@@ -1,4 +1,4 @@
-import random, argparse
+import random
 import pandas as pd
 from Controllers import Basic_Player_Controller as Basic
 
@@ -505,7 +505,7 @@ def auction_trigger(player, property):
 	buying_handler(players_in[0], property, bid, auction=True)
 	players_in[0].auction_wins += 1
 	property.auction_price = bid
-	event_dict(players_in[0], property, "purchase", "auction", bid, 1, property.net_worth/2)
+	event_dict(players_in[0], property, "purchase", "auction", bid, 1, property.buy_cost/2)
 
 #Handles buying a property (for both normal buying and auctions)
 #Also checks to see if the player now owns the entire group
@@ -963,46 +963,8 @@ def print_property_info(player):
 	for prop in player.properties:
 		print(f"Person: {player.name}, Name: {prop.name}, Houses: {prop.houses}, Mortgage Status: {prop.mortgaged}")
 
-#-----------EXPORT FUNCTIONS---------------
-def single_game_export(fileName):
-	if fileName.find(".") != -1:
-		fileName = fileName[:fileName.find(".")]
-	fileName = f"data/{fileName}.xlsx" if fileName != "" else "data/single_game_export.xlsx"
-	jailDF = pd.DataFrame(jail_table)
-	playerDF = pd.DataFrame(player_table)
-	propertyDF = pd.DataFrame(property_table)
-	auctionDF = pd.DataFrame(auction_table)
-	eventDF = pd.DataFrame(event_table)
-	with pd.ExcelWriter('data/single_game_export.xlsx') as writer:
-		playerDF.to_excel(writer, sheet_name='Player Information', index=False)
-		propertyDF.to_excel(writer, sheet_name='Property Information', index=False)
-		eventDF.to_excel(writer, sheet_name='Event Tracking Information', index=False)
-		auctionDF.to_excel(writer, sheet_name='Auction Tracking Information', index=False)
-		jailDF.to_excel(writer, sheet_name='Jail Information', index=False)
-
-def multi_game_export(fileName):
-	if fileName.find(".") != -1:
-		fileName = fileName[:fileName.find(".")]
-	fileName = f"data/{fileName}.xlsx" if fileName != "" else "data/single_game_export.xlsx"
-	jailDF = pd.DataFrame(jail_table)
-	playerDF = pd.DataFrame(player_table)
-	propertyDF = pd.DataFrame(property_table)
-	auctionDF = pd.DataFrame(auction_table)
-	eventDF = pd.DataFrame(event_table)
-	with pd.ExcelWriter('data/single_game_export.xlsx') as writer:
-		playerDF.to_excel(writer, sheet_name='Player Information', index=False)
-		propertyDF.to_excel(writer, sheet_name='Property Information', index=False)
-		eventDF.to_excel(writer, sheet_name='Event Tracking Information', index=False)
-		auctionDF.to_excel(writer, sheet_name='Auction Tracking Information', index=False)
-		jailDF.to_excel(writer, sheet_name='Jail Information', index=False)
-
 #----------PRAYING THINGS WORK-------------
-if __name__ == "__main__":
-	parser = argparse.ArgumentParser(description="Parse arguments")
-	parser.add_argument('filename', type=str)
-	parser.add_argument('choiceExport', type=int)
-	args = parser.parse_args()
-
+def main(choice, n):
 	global board, players, house_bank, chance_cards, cc_cards, rounds
 	global event_table, jail_table, player_table, property_table, auction_table #For excel export
 	board = []
@@ -1095,7 +1057,18 @@ if __name__ == "__main__":
 				print(f"Round limit reached, there was a tie for the highest net worth between: {string_to_print[:-2]}!")
 			break
 
-	event_dict(player, board[player.position], "game_end", "victory", 0, 1, 0)
+	event_dict(players[0], board[players[0].position], "game_end", "victory", 0, 1, 0)
 
-	if args.choiceExport == 1: single_game_export(str(args.filename))
-	elif args.choiceExport == 2: multi_game_export(str(args.filename))
+	jailDF = pd.DataFrame(jail_table)
+	playerDF = pd.DataFrame(player_table)
+	propertyDF = pd.DataFrame(property_table)
+	auctionDF = pd.DataFrame(auction_table)
+	eventDF = pd.DataFrame(event_table)
+	if choice == 2:
+		jailDF.insert(0, 'Game_ID', n)
+		playerDF.insert(0, 'Game_ID', n)
+		propertyDF.insert(0, 'Game_ID', n)
+		auctionDF.insert(0, 'Game_ID', n)
+		eventDF.insert(0, 'Game_ID', n)
+
+	if choice != 0: return (playerDF, propertyDF, eventDF, auctionDF, jailDF)
