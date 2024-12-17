@@ -15,7 +15,7 @@ chmod +x testfile.sh
 	 - 0 is no export
 	 - 1 is single game export (will export last game)
 	 - 2 is full multi-game export
-    	 - 3 is multi-game export of only winning games (excludes tie results)
+  	- 3 is multi-game export of only winning games (excludes tie results)
  - -h flag can also be used to provide the same info on command line level
 
 ## Project Overview
