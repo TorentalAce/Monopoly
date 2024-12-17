@@ -1,0 +1,110 @@
+---
+title: "Basic Controller Single Game Analysis"
+author: "Kadin Ali"
+date: "2024-12-14"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(coefplot)
+library(readxl)
+library(dplyr)
+library(gridExtra)
+```
+
+To change the file used to do the EAD on, change this variable
+
+```{r}
+filename <- "single_game_export.xlsx"
+```
+
+
+Loading the single-game data here
+
+```{r}
+prop_df <- read_excel(filename, sheet = "Property Information")
+player_df <- read_excel(filename, sheet = "Player Information")
+event_df <- read_excel(filename, sheet = "Event Tracking Information")
+auction_df <- read_excel(filename, sheet = "Auction Tracking Information")
+jail_df <- read_excel(filename, sheet = "Jail Information")
+```
+
+Just a small check on one of the tables to make sure everything was loaded in correctly
+
+```{r}
+prop_df %>% glimpse()
+```
+
+Here is an example of a single game's analysis for total rent collected by properties, colored based on their property group.
+
+```{r}
+prop_df %>%
+  mutate(Property_Color = case_when(Property_Group == "Railroad" ~ "black",
+                                    Property_Group == "Utility" ~ "lightgray",
+                                    Property_Group == "Light Blue" ~ "lightblue",
+                                    TRUE ~ tolower(Property_Group))) %>%
+  ggplot() +
+  geom_line(aes(x=Round, y=Total_Rent_Collected, group=Property, color=Property_Color)) +
+  scale_color_identity()
+```
+
+As can be seen from the graph above, this game the railroads were the most profitable group by far, with blues, yellows, and greens making up the top of the main property groups.
+
+Now we can transition to the player graph to see how the winner's performance correlates to properties.
+
+```{r}
+player_df %>% glimpse()
+```
+
+A glimpse at the total rent over time and related property ownership graph can be seen below.
+
+```{r}
+plot1 <- player_df %>%
+  ggplot() +
+  geom_line(aes(x=Round, y=Total_Rent_Collected, color=Player))
+
+plot2 <- player_df %>%
+  ggplot() +
+  geom_line(aes(x=Round, y=Properties_Owned, color=Player))
+
+grid.arrange(plot1, plot2)
+```
+
+Interestingly enough, the winner by a decent margin only owned the second most properties, tied with 3 others.
+
+```{r}
+tail(player_df$Houses_Owned)
+```
+
+No houses are owned either to give a significant advantage, however a glimpse at the properties owned by the top players can show the correlation
+
+```{r}
+ending_ownership_df <- data.frame(Property = tail(prop_df$Property, n=28),
+                                  Property_Owner = tail(prop_df$Owner, n=28)) %>% glimpse()
+```
+
+This table represents the ownership of each property at the very end of the game, and since no properties were mortgaged in this game (as shown below), this table represents the end-game trend accurately
+
+```{r}
+player_df %>%
+  ggplot() +
+  geom_line(aes(x=Round, y=Properties_Mortgaged))
+```
+
+We can then look at the winner (Sam), as well as the runner-up and leader in number of properties (Jerry), and see which properties they owned.
+
+```{r}
+ending_ownership_df <- ending_ownership_df %>% 
+  filter(Property_Owner %in% c("Sam", "Jerry"))
+
+ending_ownership_df$Property[ending_ownership_df$Property_Owner == "Sam"]
+ending_ownership_df$Property[ending_ownership_df$Property_Owner == "Jerry"]
+```
+
+Looking at the property list, the big stand out is Sam owning 2 railroads, which were 2 of the highest making properties. Additionally, utilities are a decent property to own overall, giving a significant advantage over the competition, even thought Jerry owned 2 yellows, a green, and a red, all high earning properties of their own right.
+
+This is where the analysis of a single game with basic AI will conclude, as a short peek into the deeper analysis in the future.
