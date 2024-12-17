@@ -2,12 +2,6 @@ import random
 import pandas as pd
 from Controllers import Basic_Player_Controller as Basic
 
-"""
-Current (known) errors/need to change: None!
-
-Todo: - Event table
-"""
-
 #-----------PLAYER FUNCTIONS-----------
 def jail_decision(player):
 	#True if leaving, false if rolling
@@ -1064,11 +1058,15 @@ def main(choice, n):
 	propertyDF = pd.DataFrame(property_table)
 	auctionDF = pd.DataFrame(auction_table)
 	eventDF = pd.DataFrame(event_table)
-	if choice == 2:
+	if choice == 2 or choice == 3:
 		jailDF.insert(0, 'Game_ID', n)
 		playerDF.insert(0, 'Game_ID', n)
 		propertyDF.insert(0, 'Game_ID', n)
 		auctionDF.insert(0, 'Game_ID', n)
 		eventDF.insert(0, 'Game_ID', n)
 
-	if choice != 0: return (playerDF, propertyDF, eventDF, auctionDF, jailDF)
+	if choice == 3 and len(players) == 1:
+		return (playerDF, propertyDF, eventDF, auctionDF, jailDF, True)
+	elif choice == 3:
+		return (playerDF, propertyDF, eventDF, auctionDF, jailDF, False)
+	elif choice != 0: return (playerDF, propertyDF, eventDF, auctionDF, jailDF)

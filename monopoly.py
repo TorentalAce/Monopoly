@@ -2,6 +2,13 @@ import monopoly_sim as ms
 import pandas as pd
 import argparse
 
+"""
+Current (known) errors/need to change:
+	- There may be an infinite loop error with mortgage/house sell, doesnt happen often
+
+Todo:
+"""
+
 if __name__ == "__main__":
 	parser = argparse.ArgumentParser(description="Parse arguments")
 	parser.add_argument('filename', type=str)
@@ -21,12 +28,24 @@ if __name__ == "__main__":
 			playerDF = pd.concat([playerDF, new[0]], ignore_index=True)
 			propertyDF = pd.concat([propertyDF, new[1]], ignore_index=True)
 			eventDF = pd.concat([eventDF, new[2]], ignore_index=True)
-			aucionDF = pd.concat([auctionDF, new[3]], ignore_index=True)
+			auctionDF = pd.concat([auctionDF, new[3]], ignore_index=True)
 			jailDF = pd.concat([jailDF, new[4]], ignore_index=True)
+	elif args.choiceExport == 3:
+		count = 0
+		while True:
+			new = ms.main(3, count)
+			if not new[5]: continue
+			count += 1
+			playerDF = pd.concat([playerDF, new[0]], ignore_index=True)
+			propertyDF = pd.concat([propertyDF, new[1]], ignore_index=True)
+			eventDF = pd.concat([eventDF, new[2]], ignore_index=True)
+			auctionDF = pd.concat([auctionDF, new[3]], ignore_index=True)
+			jailDF = pd.concat([jailDF, new[4]], ignore_index=True)
+			if count == args.gameNumber: break
 	else:
 		for i in range(0, args.gameNumber-1):
 			ms.main(0, i)
-		playerDF, propertyDF, eventDF, aucionDF, jailDF = ms.main(args.choiceExport, args.gameNumber-1)
+		playerDF, propertyDF, eventDF, auctionDF, jailDF = ms.main(args.choiceExport, args.gameNumber-1)
 
 	if args.choiceExport != 0:
 		fileName = args.filename

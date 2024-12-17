@@ -21,6 +21,7 @@ while getopts 'hn:f:c:' flag; do
 	- 0 is no export
 	- 1 is single game export (will export last game)
 	- 2 is full multi-game export
+	- 3 is multi-game export of only winning games (excludes tie results)
 		\n"
 		exit 1;
 	;;
