@@ -291,7 +291,7 @@ def initialize_square(position, groups):
 		case 12:
 			return property(name="Electric Company", buy_cost=150, group=groups["utility"])
 		case 13:
-			return property(name="States Avenue", buy_cost=200, rent_cost=10, group=groups["pink"], housing=[50, 150, 450, 625, 750])
+			return property(name="States Avenue", buy_cost=140, rent_cost=10, group=groups["pink"], housing=[50, 150, 450, 625, 750])
 		case 14:
 			return property(name="Virginia Avenue", buy_cost=160, rent_cost=12, group=groups["pink"], housing=[60, 180, 500, 700, 900])
 		case 15:
@@ -303,7 +303,7 @@ def initialize_square(position, groups):
 		case 18:
 			return property(name="Tennessee Avenue", buy_cost=180, rent_cost=14, group=groups["orange"], housing=[70, 200, 550, 700, 950])
 		case 19:
-			return property(name="New York Avenue", buy_cost=180, rent_cost=16, group=groups["orange"], housing=[80, 220, 600, 800, 1000])
+			return property(name="New York Avenue", buy_cost=200, rent_cost=16, group=groups["orange"], housing=[80, 220, 600, 800, 1000])
 		case 20:
 			return property(name="Free Parking")
 		case 21:
