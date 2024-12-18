@@ -6,7 +6,7 @@ import argparse
 Current (known) errors/need to change:
 	- There may be an infinite loop error with mortgage/house sell, doesnt happen often
 
-Todo:
+Todo: Fix the error (added a lazy fix of a timeout after 5 seconds to handle this for now)
 """
 
 if __name__ == "__main__":
@@ -33,7 +33,10 @@ if __name__ == "__main__":
 	elif args.choiceExport == 3:
 		count = 0
 		while True:
-			new = ms.main(3, count)
+			try:
+				new = ms.main(3, count)
+			except SystemExit: continue
+
 			if not new[5]: continue
 			count += 1
 			playerDF = pd.concat([playerDF, new[0]], ignore_index=True)

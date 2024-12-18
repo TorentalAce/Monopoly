@@ -1,4 +1,4 @@
-import random
+import random, signal
 import pandas as pd
 from Controllers import Basic_Player_Controller as Basic
 
@@ -957,6 +957,12 @@ def print_property_info(player):
 	for prop in player.properties:
 		print(f"Person: {player.name}, Name: {prop.name}, Houses: {prop.houses}, Mortgage Status: {prop.mortgaged}")
 
+
+def alarmHit(signum, frame):
+	print("Timed Out")
+	signal.alarm(0)
+	exit(0)
+
 #----------PRAYING THINGS WORK-------------
 def main(choice, n):
 	global board, players, house_bank, chance_cards, cc_cards, rounds
@@ -976,6 +982,10 @@ def main(choice, n):
 	auction_table = []
 	initialize_game()
 	rounds = 0
+
+	#Lazy Fix for infinite loop
+	signal.signal(signal.SIGALRM, alarmHit)
+	signal.alarm(2)
 
 	#Runs until the end of the game gets triggered
 	while True:
@@ -1027,6 +1037,7 @@ def main(choice, n):
 			break
 		if rounds == 100:
 			for player in players:
+				player.net_worth += player.money
 				for prop in player.properties:
 					player.net_worth += prop.buy_cost/2
 
@@ -1051,7 +1062,12 @@ def main(choice, n):
 				print(f"Round limit reached, there was a tie for the highest net worth between: {string_to_print[:-2]}!")
 			break
 
-	event_dict(players[0], board[players[0].position], "game_end", "victory", 0, 1, 0)
+	if len(players) <= 1:
+		event_dict(players[0], board[players[0].position], "game_end", "victory", 0, 1, 0)
+	else:
+		event_dict(best_networth, board[best_networth.position], "game_end", "tie-victory", 0, 1, 0)
+
+	signal.alarm(0)
 
 	jailDF = pd.DataFrame(jail_table)
 	playerDF = pd.DataFrame(player_table)
@@ -1065,7 +1081,7 @@ def main(choice, n):
 		auctionDF.insert(0, 'Game_ID', n)
 		eventDF.insert(0, 'Game_ID', n)
 
-	if choice == 3 and len(players) == 1:
+	if choice == 3 and len(players) <= 1:
 		return (playerDF, propertyDF, eventDF, auctionDF, jailDF, True)
 	elif choice == 3:
 		return (playerDF, propertyDF, eventDF, auctionDF, jailDF, False)

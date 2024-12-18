@@ -1,0 +1,287 @@
+---
+title: "Multi_Game_Basic"
+author: "Kadin Ali"
+date: "2024-12-17"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(coefplot)
+library(readxl)
+library(dplyr)
+library(gridExtra)
+```
+
+To change the file used to do the EAD on, change this variable. For now we will only be looking at winning game data, deadlocks that cause ties may be looked at if they happen in the future, but with the basic AI its relatively straightforward and boring (in that deadlocks are generally caused by an inability to develop).
+
+```{r}
+filename <- "Multi_Game_Export_Wins_Only.xlsx"
+```
+
+Loading the single-game data here
+
+```{r}
+prop_df <- read_excel(filename, sheet = "Property Information")
+player_df <- read_excel(filename, sheet = "Player Information")
+event_df <- read_excel(filename, sheet = "Event Tracking Information")
+auction_df <- read_excel(filename, sheet = "Auction Tracking Information")
+jail_df <- read_excel(filename, sheet = "Jail Information")
+```
+
+Just a small check on one of the tables to make sure everything was loaded in correctly
+
+```{r}
+prop_df %>% glimpse()
+```
+
+Similar to the single-game analysis, we can see how each property did over the course of a single game here by subsetting the original dataframe for just the first game ID.
+
+```{r}
+prop_df[prop_df$Game_ID == 0, ] %>%
+  mutate(Property_Color = case_when(Property_Group == "Railroad" ~ "black",
+                                    Property_Group == "Utility" ~ "lightgray",
+                                    Property_Group == "Light Blue" ~ "lightblue",
+                                    TRUE ~ tolower(Property_Group))) %>%
+  ggplot() +
+  geom_line(aes(x=Round, y=Total_Rent_Collected, group=Property, color=Property_Color)) +
+  scale_color_identity()
+```
+
+As we can see here, the blue properties drastically over-perform in terms of generating revenue passed the mid-game, log transforming the data can give a clearer picture in the early game to see how properties performed.
+
+```{r}
+prop_df[prop_df$Game_ID == 0, ] %>%
+  mutate(Property_Color = case_when(Property_Group == "Railroad" ~ "black",
+                                    Property_Group == "Utility" ~ "lightgray",
+                                    Property_Group == "Light Blue" ~ "lightblue",
+                                    TRUE ~ tolower(Property_Group)),
+         Log_Rent_Total = case_when(Total_Rent_Collected == 0 ~ 0,
+                                    TRUE ~ log(Total_Rent_Collected))) %>%
+  ggplot() +
+  geom_line(aes(x=Round, y=Log_Rent_Total, group=Property, color=Property_Color)) +
+  scale_color_identity()
+```
+
+This scaling can give us a better view of the data overall as time goes on, with railroads actually competing with the blues, with other high-rent properties close behind in terms of totals, with blues truly only breaking away in the mid-teens/mid 20s, with railroads still remaining a significant investment passed that point for a runner-up property group, although still not nearly to the extent of the blues (as apparent in the non-transformed graph).
+
+To expand upon this, if we want to take a snapshot look at any point throughout the game, we can take the average revenue made per round over a period of the game, and graph that for each game. An end-game example would be below, where we can look at how properties performed solely passed round 25 (which is about the point that both blues had broken away from other properties)
+
+```{r}
+start_round <- prop_df[prop_df$Game_ID == 0, ] %>%
+  filter(Round == 25) %>%
+  ungroup()
+
+end_round <- prop_df[prop_df$Game_ID == 0, ] %>%
+  filter(Round == max(Round)) %>%
+  ungroup()
+
+rev_25 <- data.frame(Property = start_round$Property, 
+                     Rev_Per_Round = (end_round$Total_Rent_Collected - start_round$Total_Rent_Collected) / (unique(end_round$Round) - 25),
+                     Property_Color = case_when(start_round$Property_Group == "Railroad" ~ "black",
+                                    start_round$Property_Group == "Utility" ~ "lightgray",
+                                    start_round$Property_Group == "Light Blue" ~ "lightblue",
+                                    TRUE ~ tolower(start_round$Property_Group))) %>%
+  mutate(Log_AV = case_when(Rev_Per_Round == 0 ~ -2.5,
+                            TRUE ~ log(Rev_Per_Round)))
+rev_25
+```
+
+Plotting this out we can have a better view of the end game performance now
+
+```{r}
+plot1 <- rev_25 %>%
+  ggplot() +
+  geom_bar(aes(x=Property, y=Rev_Per_Round, fill=Property_Color), stat="identity") +
+  scale_fill_identity()
+
+plot2 <- rev_25 %>%
+  ggplot() +
+  geom_bar(aes(x=Property, y=Log_AV, fill=Property_Color), stat="identity") +
+  scale_fill_identity()
+
+grid.arrange(plot1, plot2)
+```
+
+These graphs show the apparent in the blue's dominance in the late game very clearly, but using this logic we can also look at the property revenue difference throughout the early game (rounds 1-10). Through just dice rolls (neglecting cards), these rounds will see players cross around the board about twice-three times on average, so they should show an early view into which properties could produce an early-game lead.
+
+```{R}
+start_round <- prop_df[prop_df$Game_ID == 0, ] %>%
+  filter(Round == 1) %>%
+  ungroup()
+
+end_round <- prop_df[prop_df$Game_ID == 0, ] %>%
+  filter(Round == 10) %>%
+  ungroup()
+
+rev_begin <- data.frame(Property = start_round$Property, 
+                     Rev_Per_Round = (end_round$Total_Rent_Collected - start_round$Total_Rent_Collected) / (10 - 1),
+                     Property_Color = case_when(start_round$Property_Group == "Railroad" ~ "black",
+                                    start_round$Property_Group == "Utility" ~ "lightgray",
+                                    start_round$Property_Group == "Light Blue" ~ "lightblue",
+                                    TRUE ~ tolower(start_round$Property_Group))) %>%
+  mutate(Log_AV = case_when(Rev_Per_Round == 0 ~ -2.5,
+                            TRUE ~ log(Rev_Per_Round)))
+rev_begin
+```
+
+```{R}
+plot1 <- rev_begin %>%
+  ggplot() +
+  geom_bar(aes(x=Property, y=Rev_Per_Round, fill=Property_Color), stat="identity") +
+  scale_fill_identity()
+
+plot2 <- rev_begin %>%
+  ggplot() +
+  geom_bar(aes(x=Property, y=Log_AV, fill=Property_Color), stat="identity") +
+  scale_fill_identity()
+
+grid.arrange(plot1, plot2)
+```
+
+Visibly, railroads are a lot more valuable in the early game for this specific game, with Reading railroad being especially profitable (this may have to do with chance/community chest cards also effecting this outcome). Boardwalk was the only blue landed on for rent, with its value coming out to about the same as reds, yellows, oranges, and the other owned railroad. Overall the least valuable properties landed on are the pinks from this snapshot, even more so than light blues (which should theoretically drive less value).
+
+That being said, the analysis so far has only been of a single game, a better view will be when the data is extended to the full game set. Below we can perform the same average revenue production transformation, and plot as a line chart (grouped by property). We will start by looking at the full-game average revenue per game for each property over the span of games.
+
+```{R}
+end_round <- prop_df %>%
+  group_by(Game_ID) %>%
+  filter(Round == max(Round)) %>%
+  ungroup()
+
+start_round <- prop_df %>%
+  group_by(Game_ID) %>%
+  filter(Round == 1) %>%
+  ungroup()
+
+rev_full <- data.frame(Game_ID = start_round$Game_ID,
+                       Property = start_round$Property, 
+                       Rev_Per_Round = (end_round$Total_Rent_Collected - start_round$Total_Rent_Collected) / (end_round$Round - start_round$Round),
+                       Property_Color = case_when(start_round$Property_Group == "Railroad" ~ "black",
+                                    start_round$Property_Group == "Utility" ~ "lightgray",
+                                    start_round$Property_Group == "Light Blue" ~ "lightblue",
+                                    TRUE ~ tolower(start_round$Property_Group))) %>%
+  mutate(Log_AV = case_when(Rev_Per_Round == 0 ~ -3,
+                            TRUE ~ log(Rev_Per_Round)))
+rev_full
+```
+
+And the resulting line-graph
+
+```{R}
+plot1 <- rev_full %>%
+  ggplot() +
+  geom_line(aes(x=Game_ID, y=Rev_Per_Round, group=Property, color=Property_Color)) +
+  scale_color_identity()
+
+plot2 <- rev_full %>%
+  ggplot() +
+  geom_line(aes(x=Game_ID, y=Log_AV, group=Property, color=Property_Color)) +
+  scale_color_identity()
+
+grid.arrange(plot1, plot2)
+```
+
+The normal data shows a fairly clear picture that the blue properties are largely the reason behind winning games, with orange, red, green, and yellow properties also peaking occasionally. The log transformed data gives an even better view of this pattern, with pinks, blues, and browns coming in very low on average. Utility and railroads are also revealed to be very consistently decent after the blue properties. 
+
+Below we can create a table of the medians of these averages per property to get a decent overview of the consistency of these properties.
+
+```{R, echo=FALSE, message=FALSE, results='hide'}
+rev_full_med <- rev_full %>%
+  group_by(Property, Property_Color) %>%
+  summarise(Median = median(Rev_Per_Round)) %>%
+  mutate(Log_Median = log(Median))
+
+rev_full_med
+```
+
+And the resulting bar graph below
+
+```{R}
+plot1 <- rev_full_med %>%
+  ggplot() +
+  geom_bar(aes(x=Property, y=Median, fill=Property_Color), stat="identity") +
+  scale_fill_identity()
+
+plot2 <- rev_full_med %>%
+  ggplot() +
+  geom_bar(aes(x=Property, y=Log_Median, fill=Property_Color), stat="identity") +
+  scale_fill_identity()
+
+grid.arrange(plot1, plot2)
+```
+
+This graph shows that after the blues (which are visibly going to always be the best property group on average with the basic controller), railroads and utilities are far more consistent in driving revenue long term than any other property group. Greens, yellows, reds, and to a lesser extent oranges come close behind, with pinks, light blues, and browns failing to be good investments long term.
+
+Another interesting metric may be the count of games in which the average revenue per round of properties is the greatest. This can show which properties have the greatest potential, lending advantage to more high-risk strategies that care less about overall consistency and more on peak benefit.
+
+```{R, echo=FALSE, message=FALSE, results='hide'}
+rev_counts_max <- rev_full %>%
+  group_by(Game_ID) %>%
+  filter(Rev_Per_Round == max(Rev_Per_Round)) %>%
+  slice(1) %>%
+  ungroup() %>%
+  select(Game_ID, Property, Property_Color) %>%
+  group_by(Property, Property_Color) %>%
+  summarize(Count = n()) %>%
+  mutate(Log_Count = case_when(TRUE ~ log(Count)))
+
+rev_counts
+```
+
+The bar graphs corresponding below.
+
+```{R}
+plot1 <- rev_counts_max %>%
+  ggplot() +
+  geom_bar(aes(x=Property, y=Count, fill=Property_Color), stat="identity") +
+  scale_fill_identity()
+
+plot2 <- rev_counts_max %>%
+  ggplot() +
+  geom_bar(aes(x=Property, y=Log_Count, fill=Property_Color), stat="identity") +
+  scale_fill_identity()
+
+grid.arrange(plot1, plot2)
+```
+
+Note, this graph only displays properties that have the highest rev_per_round of a game, if a property never topped a game it will not be displayed here. Interestingly enough, railroads and utilities combined only have 1 singular count here, meaning that although they were consistent drivers of revenue, they were not the make or break behind games, but a method to get to higher value properties. Most groups (outside those already mentioned) are fairly balanced in terms of their impact late game evidently, besides blue taking a commanding lead of course. Browns and blue are less present, but they do still have an impact in comparison to the average impact, which was very low overall.
+
+This graph can be compared to the inverse, finding the counts of when properties have the lowest average revenue as well.
+
+```{R, echo=FALSE, message=FALSE, results='hide'}
+rev_counts_min <- rev_full %>%
+  group_by(Game_ID) %>%
+  filter(Rev_Per_Round == min(Rev_Per_Round)) %>%
+  slice(1) %>%
+  ungroup() %>%
+  select(Game_ID, Property, Property_Color) %>%
+  group_by(Property, Property_Color) %>%
+  summarize(Count = n()) %>%
+  mutate(Log_Count = case_when(TRUE ~ log(Count)))
+
+rev_counts_min
+```
+
+```{R}
+plot1 <- rev_counts_min %>%
+  ggplot() +
+  geom_bar(aes(x=Property, y=Count, fill=Property_Color), stat="identity") +
+  scale_fill_identity()
+
+plot2 <- rev_counts_min %>%
+  ggplot() +
+  geom_bar(aes(x=Property, y=Log_Count, fill=Property_Color), stat="identity") +
+  scale_fill_identity()
+
+grid.arrange(plot1, plot2)
+```
+
+And here we can see properties that are higher risk to take, since they may not pay off at all. As expected lower revenue properties (brown, light blue, pink) top the list, but interestingly enough railroads have a decent presence, as well as blues. Overall most consistent appear to be the middle properties (orange, red, yellow).
+
+Overall it appears that on average throughout games, Blue properties will be the ones to win you the game, while properties such as railroads and utilities can be a safe way to get to those blues. Oranges, reds, and yellows are seemingly the safest buys to ensure some income, but will likely not be the driving factors for a winning game. Pinks, light blues, and browns are likely bad investments, although they could be a surprising income driver, especially for the trade-off of how cheap they are. Greens appear to be the worst investment overall, with a risk similar to blues, with none of the payoff, and a game-winning factor similar to far safer options, with railroads and utilities being similarly bad for late-game performance.
+
+This does leave a few more points of analysis however, namely early-game specific metrics, as well as a cost-value analysis, factoring in the average purchasing cost of these properties (auctions and buys) into their income drivers. 
