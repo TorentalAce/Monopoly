@@ -1029,7 +1029,8 @@ def main(choice, n):
 				"Property_Group": prop.group.name,
 				"Status": status,
 				"Total_Rent_Collected": prop.total_rent_collected,
-				"Auction_Price": prop.auction_price
+				"Auction_Price": prop.auction_price,
+				"Buy_Price": prop.buy_cost
 			})
 
 		if len(players) <= 1:
