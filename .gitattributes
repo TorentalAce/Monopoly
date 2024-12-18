@@ -1,4 +1,3 @@
 *.Rmd linguist-language=R
-*.py linguist-language=Python
-*.html linguist-vendored
-*.xlsx linguist-vendored
+*.html linguist-vendored=true
+*.xlsx linguist-vendored=true
