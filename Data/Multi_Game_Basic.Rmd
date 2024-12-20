@@ -5,6 +5,8 @@ date: "2024-12-17"
 output: html_document
 ---
 
+For this project, the analysis portion outlined below is meant to highlight unseen/unpredictable outcomes resulting from the AI's actions taken throughout the game, showing more optimal ways to play. 
+
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
@@ -51,7 +53,7 @@ prop_df[prop_df$Game_ID == 0, ] %>%
   scale_color_identity()
 ```
 
-As we can see here, the blue properties drastically over-perform in terms of generating revenue passed the mid-game, log transforming the data can give a clearer picture in the early game to see how properties performed.
+As we can see here, the blue properties drastically over-perform in terms of generating revenue passed the mid-game, log transforming the data (taking the natural log of the Total_Rent_Collected) can give a clearer picture in the early game to see how properties performed. We are adding 1 within the log to be free from NA values, as log(0) is undefined, so if no rent was generated yet on a property we want to display 0, and scale the rest of the graph accordingly. Log transforming allows us to keep the general shape of the graph the same, but scale peaks closer to the rest of the data visually.
 
 ```{r}
 prop_df[prop_df$Game_ID == 0, ] %>%
@@ -67,7 +69,7 @@ prop_df[prop_df$Game_ID == 0, ] %>%
 
 Note, to avoid the error resulting from a total rent of 0, the data will all be shifted by +1, so that log(0) would end up just being 0, and the rest of the data would be scaled similarly. This scaling can give us a better view of the data overall as time goes on, with railroads actually competing with the blues, with other high-rent properties close behind in terms of totals, with blues truly only breaking away in the mid-teens/mid 20s, with railroads still remaining a significant investment passed that point for a runner-up property group, although still not nearly to the extent of the blues (as apparent in the non-transformed graph).
 
-To expand upon this, if we want to take a snapshot look at any point throughout the game, we can take the average revenue made per round over a period of the game, and graph that for each game. An end-game example would be below, where we can look at how properties performed solely passed round 25 (which is about the point that both blues had broken away from other properties)
+To expand upon this, if we want to take a snapshot look at any point throughout the game, we can take the average revenue made per round over a period of the game, and graph that for each game. The average revenue per round is found via the formula \( Total\_Rent\_Collected/number\_of\_rounds \), where Total_Rent_Collected is taken over the number of rounds alone. An end-game example would be below, where we can look at how properties performed solely passed round 25 (which is about the point that both blues had broken away from other properties). We are taking the average revenue per round for two reasons, one because we want to see how the data is represented as an over-time metric, and the second because this makes it easily graphable over a period of games, with each games' rev-per-round graphed as a point for each property to show which properties tend towards higher rev-per-rounds.
 
 ```{r}
 start_round <- prop_df[prop_df$Game_ID == 1, ] %>%
@@ -85,7 +87,7 @@ rev_25 <- data.frame(Property = start_round$Property,
                                     start_round$Property_Group == "Light Blue" ~ "lightblue",
                                     TRUE ~ tolower(start_round$Property_Group))) %>%
   mutate(Log_AV = log(Rev_Per_Round + 1))
-rev_25
+rev_25 %>% glimpse()
 ```
 
 Plotting this out we can have a better view of the end game performance now
@@ -122,7 +124,7 @@ rev_begin <- data.frame(Property = start_round$Property,
                                     start_round$Property_Group == "Light Blue" ~ "lightblue",
                                     TRUE ~ tolower(start_round$Property_Group))) %>%
   mutate(Log_AV = log(Rev_Per_Round+1))
-rev_begin
+rev_begin %>% glimpse()
 ```
 
 ```{R}
@@ -162,7 +164,7 @@ rev_full <- data.frame(Game_ID = start_round$Game_ID,
                                     start_round$Property_Group == "Light Blue" ~ "lightblue",
                                     TRUE ~ tolower(start_round$Property_Group))) %>%
   mutate(Log_AV = log(Rev_Per_Round+1))
-rev_full
+rev_full %>% glimpse()
 ```
 
 And the resulting line-graph
@@ -191,7 +193,7 @@ rev_full_med <- rev_full %>%
   summarise(Median = median(Rev_Per_Round)) %>%
   mutate(Log_Median = log(Median+1))
 
-rev_full_med
+rev_full_med %>% glimpse()
 ```
 
 And the resulting bar graph below
@@ -219,12 +221,12 @@ rev_counts_max <- rev_full %>%
   group_by(Game_ID) %>%
   filter(Rev_Per_Round == max(Rev_Per_Round)) %>%
   ungroup() %>%
-  select(Game_ID, Property, Property_Color) %>%
+  dplyr::select(Game_ID, Property, Property_Color) %>%
   group_by(Property, Property_Color) %>%
   summarize(Count = n()) %>%
   mutate(Log_Count = log(Count+1))
 
-rev_counts
+rev_counts_max %>% glimpse()
 ```
 
 The bar graphs corresponding below.
@@ -252,12 +254,12 @@ rev_counts_min <- rev_full %>%
   group_by(Game_ID) %>%
   filter(Rev_Per_Round == min(Rev_Per_Round)) %>%
   ungroup() %>%
-  select(Game_ID, Property, Property_Color) %>%
+  dplyr::select(Game_ID, Property, Property_Color) %>%
   group_by(Property, Property_Color) %>%
   summarize(Count = n()) %>%
   mutate(Log_Count = log(Count+1))
 
-rev_counts_min
+rev_counts_min %>% glimpse()
 ```
 
 ```{R}
@@ -301,7 +303,7 @@ rev_full_early <- data.frame(Game_ID = start_round$Game_ID,
                                     start_round$Property_Group == "Light Blue" ~ "lightblue",
                                     TRUE ~ tolower(start_round$Property_Group))) %>%
   mutate(Log_AV = log(Rev_Per_Round+1))
-rev_full_early
+rev_full_early %>% glimpse()
 ```
 
 ```{R}
@@ -318,7 +320,7 @@ plot2 <- rev_full_early %>%
 grid.arrange(plot1, plot2)
 ```
 
-Now note, because this is so early on in the game, there is a chance that some properties haven't collected rent at all, making the log value undefined. Because of this, data at this point is filled with a placeholder 0 (simply for clarity within the graph). That being said, the pattern retains its overall appearance regardless, with browns and light blues having a significantly low value (being the only rev_per_round values regularly less than 1, or being negative in the log-transformed data). Blues still maintain the highest level of value in the early game, however railroads and utilities are significantly closer compared to the overall game, with some other property groups having occasional peaks as well (the most surprising of which being pink).
+The pattern retains its overall appearance, with browns and light blues having a significantly low value (being the only rev_per_round values regularly less than 1, or being negative in the log-transformed data). Blues still maintain the highest level of value in the early game, however railroads and utilities are significantly closer compared to the overall game, with some other property groups having occasional peaks as well (the most surprising of which being pink).
 
 Next, lets look at the consistency graph (medians).
 
@@ -328,7 +330,7 @@ rev_full_med_early <- rev_full_early %>%
   summarise(Median = median(Rev_Per_Round)) %>%
   mutate(Log_Median = log(Median+1))
 
-rev_full_med_early
+rev_full_med_early %>% glimpse()
 ```
 
 ```{R}
@@ -354,13 +356,12 @@ rev_counts_early_max <- rev_full_early %>%
   group_by(Game_ID) %>%
   filter(Rev_Per_Round == max(Rev_Per_Round)) %>%
   ungroup() %>%
-  select(Game_ID, Property, Property_Color) %>%
+  dplyr::select(Game_ID, Property, Property_Color) %>%
   group_by(Property, Property_Color) %>%
   summarize(Count = n()) %>%
   mutate(Log_Count = log(Count+1))
 
-rev_counts_early_max
-
+rev_counts_early_max %>% glimpse()
 ```
 
 ```{R, echo=FALSE, message=FALSE, results='hide'}
@@ -368,12 +369,12 @@ rev_counts_early_min <- rev_full_early %>%
   group_by(Game_ID) %>%
   filter(Rev_Per_Round == min(Rev_Per_Round)) %>%
   ungroup() %>%
-  select(Game_ID, Property, Property_Color) %>%
+  dplyr::select(Game_ID, Property, Property_Color) %>%
   group_by(Property, Property_Color) %>%
   summarize(Count = n()) %>%
   mutate(Log_Count = log(Count+1))
 
-rev_counts_early_min
+rev_counts_early_min %>% glimpse()
 ```
 
 ```{R}
@@ -442,7 +443,7 @@ rev_full_prop <- data.frame(Game_ID = start_round$Game_ID,
                                     start_round$Property_Group == "Utility" ~ "lightgray",
                                     start_round$Property_Group == "Light Blue" ~ "lightblue",
                                     TRUE ~ tolower(start_round$Property_Group)))
-rev_full_prop
+rev_full_prop %>% glimpse()
 ```
 
 ```{R}
@@ -459,7 +460,7 @@ rev_full_prop_med <- rev_full_prop %>%
   group_by(Property, Property_Color) %>%
   summarise(Median = median(Rev_Per_Round))
 
-rev_full_prop_med
+rev_full_prop_med %>% glimpse()
 ```
 
 ```{R}
@@ -476,12 +477,12 @@ rev_counts_prop_max <- rev_full_prop %>%
   group_by(Game_ID) %>%
   filter(Rev_Per_Round == max(Rev_Per_Round)) %>%
   ungroup() %>%
-  select(Game_ID, Property, Property_Color) %>%
+  dplyr::select(Game_ID, Property, Property_Color) %>%
   group_by(Property, Property_Color) %>%
   summarize(Count = n()) %>%
   mutate(Log_Count = log(Count+1))
 
-rev_counts_prop_max
+rev_counts_prop_max %>% glimpse()
 ```
 
 ```{R, echo=FALSE, message=FALSE, results='hide'}
@@ -489,12 +490,12 @@ rev_counts_prop_min <- rev_full_prop %>%
   group_by(Game_ID) %>%
   filter(Rev_Per_Round == min(Rev_Per_Round)) %>%
   ungroup() %>%
-  select(Game_ID, Property, Property_Color) %>%
+  dplyr::select(Game_ID, Property, Property_Color) %>%
   group_by(Property, Property_Color) %>%
   summarize(Count = n()) %>%
   mutate(Log_Count = log(Count+1))
 
-rev_counts_prop_min
+rev_counts_prop_min %>% glimpse()
 ```
 
 ```{R}
@@ -529,27 +530,359 @@ Evidently, the browns become the most volatile property, either having the most 
 
 Overall looking at just buy cost proportionality makes the blues seem highly consistent, while lending some support to the early-game value of properties such as browns. Adding houses in will give a full look to this. For the house proportionality, the same formula will be used, but adding the cost for houses (based on the property) * the number of houses onto the buy cost, so boardwalk with 4 houses will have a buy cost of 1200 (4*200 + 400) instead of just 400.
 
-```{R}
-grepl("houses", labels)
-```
+```{R, echo=FALSE, warning=FALSE}
+houses <- sub("^(\\d+) houses$", "\\1", prop_df$Status)
+houses <- as.numeric(houses)
 
+prop_df_house <- prop_df %>%
+  mutate(Number_Of_Houses = case_when(prop_df$Status == "hotel" ~ 5, 
+                                        is.na(houses) ~ 0,
+                                        TRUE ~ houses),
+         Property_Color = case_when(prop_df$Property_Group == "Railroad" ~ "black",
+                                    prop_df$Property_Group == "Utility" ~ "lightgray",
+                                    prop_df$Property_Group == "Light Blue" ~ "lightblue",
+                                    TRUE ~ tolower(prop_df$Property_Group)),
+         House_Cost = case_when(prop_df$Property_Group %in% c("Brown", "Light Blue") ~ 50,
+                                prop_df$Property_Group %in% c("Pink", "Orange") ~ 100,
+                                prop_df$Property_Group %in% c("Red", "Yellow") ~ 150,
+                                prop_df$Property_Group %in% c("Green", "Blue") ~ 200,
+                                TRUE ~ 0),
+         Cost_Proportional_Rent = Total_Rent_Collected / (Buy_Price + House_Cost * Number_Of_Houses))
 
-end_round <- prop_df_prop1 %>%
+end_round <- prop_df_house %>%
   group_by(Game_ID) %>%
   filter(Round == max(Round)) %>%
   ungroup()
 
-start_round <- prop_df_prop1 %>%
+start_round <- prop_df_house %>%
   group_by(Game_ID) %>%
   filter(Round == 1) %>%
   ungroup()
 
-rev_full_prop <- data.frame(Game_ID = start_round$Game_ID,
+rev_full_prop_house <- data.frame(Game_ID = start_round$Game_ID,
                        Property = start_round$Property, 
                        Rev_Per_Round = (end_round$Cost_Proportional_Rent - start_round$Cost_Proportional_Rent) / (end_round$Round - start_round$Round),
                        Property_Color = case_when(start_round$Property_Group == "Railroad" ~ "black",
                                     start_round$Property_Group == "Utility" ~ "lightgray",
                                     start_round$Property_Group == "Light Blue" ~ "lightblue",
                                     TRUE ~ tolower(start_round$Property_Group)))
-rev_full_prop
+rev_full_prop_house %>% glimpse()
 ```
+
+```{R}
+rev_full_prop_house %>%
+  ggplot() +
+  geom_line(aes(x=Game_ID, y=Rev_Per_Round, group=Property, color=Property_Color)) +
+  scale_color_identity()
+```
+
+So far, factoring in the house cost is lending credence towards lower value properties, however lets take a look at the medians for a better picture on consistency.
+
+```{R, echo=FALSE, message=FALSE, results='hide'}
+rev_full_prop_house_med <- rev_full_prop_house %>%
+  group_by(Property, Property_Color) %>%
+  summarise(Median = median(Rev_Per_Round))
+
+rev_full_prop_house_med %>% glimpse()
+```
+
+```{R}
+rev_full_prop_house_med %>%
+  ggplot() +
+  geom_bar(aes(x=Property, y=Median, fill=Property_Color), stat="identity") +
+  scale_fill_identity()
+```
+
+Just like with the previous scale blues are still highly consistent, however now that houses are factored into cost the effectiveness of railroads and utilities is starting to show greatly, competing with the blues in terms of overall consistency.The rest of the properties also certainly benefit from this factor when gauging their effectiveness, especially among the mid-price properties.
+
+```{R, echo=FALSE, message=FALSE, results='hide'}
+rev_full_prop_house_max <- rev_full_prop_house %>%
+  group_by(Game_ID) %>%
+  filter(Rev_Per_Round == max(Rev_Per_Round)) %>%
+  ungroup() %>%
+  dplyr::select(Game_ID, Property, Property_Color) %>%
+  group_by(Property, Property_Color) %>%
+  summarize(Count = n()) %>%
+  mutate(Log_Count = log(Count+1))
+
+rev_full_prop_house_max %>% glimpse()
+```
+
+```{R, echo=FALSE, message=FALSE, results='hide'}
+rev_full_prop_house_min <- rev_full_prop_house %>%
+  group_by(Game_ID) %>%
+  filter(Rev_Per_Round == min(Rev_Per_Round)) %>%
+  ungroup() %>%
+  dplyr::select(Game_ID, Property, Property_Color) %>%
+  group_by(Property, Property_Color) %>%
+  summarize(Count = n()) %>%
+  mutate(Log_Count = log(Count+1))
+
+rev_full_prop_house_min %>% glimpse()
+```
+
+```{R}
+plot1 <- rev_full_prop_house_max %>%
+  ggplot() +
+  geom_bar(aes(x=Property, y=Count, fill=Property_Color), stat="identity") +
+  scale_fill_identity()
+
+plot2 <- rev_full_prop_house_max %>%
+  ggplot() +
+  geom_bar(aes(x=Property, y=Log_Count, fill=Property_Color), stat="identity") +
+  scale_fill_identity()
+
+grid.arrange(plot1, plot2)
+```
+
+```{R}
+plot1 <- rev_full_prop_house_min %>%
+  ggplot() +
+  geom_bar(aes(x=Property, y=Count, fill=Property_Color), stat="identity") +
+  scale_fill_identity()
+
+plot2 <- rev_full_prop_house_min %>%
+  ggplot() +
+  geom_bar(aes(x=Property, y=Log_Count, fill=Property_Color), stat="identity") +
+  scale_fill_identity()
+
+grid.arrange(plot1, plot2)
+```
+
+Railroads and utilities benefit greatly from with the min/max graphs as well, becoming some of the best properties to own alongside blues statistically. Browns still continue to dominate the minimums (with light blues also peaking). Overall these metrics seem to designate the first row properties as high-risk properties, that statistically can have the highest value for their price, although likely won't throughout the games' span.
+
+To round-out the property analysis, we can look at the early-game cost proportinal analysis for these properties as well.
+
+```{R, echo=FALSE, warning=FALSE}
+end_round <- prop_df_house %>%
+  group_by(Game_ID) %>%
+  filter(Round == 10) %>%
+  ungroup()
+
+start_round <- prop_df_house %>%
+  group_by(Game_ID) %>%
+  filter(Round == 1) %>%
+  ungroup()
+
+rev_full_prop_house_early <- data.frame(Game_ID = start_round$Game_ID,
+                       Property = start_round$Property, 
+                       Rev_Per_Round = (end_round$Cost_Proportional_Rent - start_round$Cost_Proportional_Rent) / (end_round$Round - start_round$Round),
+                       Property_Color = case_when(start_round$Property_Group == "Railroad" ~ "black",
+                                    start_round$Property_Group == "Utility" ~ "lightgray",
+                                    start_round$Property_Group == "Light Blue" ~ "lightblue",
+                                    TRUE ~ tolower(start_round$Property_Group)))
+rev_full_prop_house_early %>% glimpse()
+```
+
+```{R}
+rev_full_prop_house_early %>%
+  ggplot() +
+  geom_line(aes(x=Game_ID, y=Rev_Per_Round, group=Property, color=Property_Color)) +
+  scale_color_identity()
+```
+
+Visually, railroads and utilities seem to dominate a lot more in the early game when it comes to being cost-effective, a peak at the median and min/max data can show a better picture as well.
+
+```{R, echo=FALSE, message=FALSE, results='hide'}
+rev_full_prop_house_early %>%
+  group_by(Property, Property_Color) %>%
+  summarise(Median = median(Rev_Per_Round)) %>%
+  ggplot() +
+  geom_bar(aes(x=Property, y=Median, fill=Property_Color), stat="identity") +
+  scale_fill_identity()
+```
+
+```{R, echo=FALSE, message=FALSE, results='hide'}
+rev_full_prop_house_max_early <- rev_full_prop_house_early %>%
+  group_by(Game_ID) %>%
+  filter(Rev_Per_Round == max(Rev_Per_Round)) %>%
+  ungroup() %>%
+  dplyr::select(Game_ID, Property, Property_Color) %>%
+  group_by(Property, Property_Color) %>%
+  summarize(Count = n()) %>%
+  mutate(Log_Count = log(Count+1))
+
+rev_full_prop_house_min_early <- rev_full_prop_house_early %>%
+  group_by(Game_ID) %>%
+  filter(Rev_Per_Round == min(Rev_Per_Round)) %>%
+  ungroup() %>%
+  dplyr::select(Game_ID, Property, Property_Color) %>%
+  group_by(Property, Property_Color) %>%
+  summarize(Count = n()) %>%
+  mutate(Log_Count = log(Count+1))
+
+plot1 <- rev_full_prop_house_max_early %>%
+  ggplot() +
+  geom_bar(aes(x=Property, y=Count, fill=Property_Color), stat="identity") +
+  scale_fill_identity()
+
+plot2 <- rev_full_prop_house_max_early %>%
+  ggplot() +
+  geom_bar(aes(x=Property, y=Log_Count, fill=Property_Color), stat="identity") +
+  scale_fill_identity()
+
+plot3 <- rev_full_prop_house_min_early %>%
+  ggplot() +
+  geom_bar(aes(x=Property, y=Count, fill=Property_Color), stat="identity") +
+  scale_fill_identity()
+
+plot4 <- rev_full_prop_house_min_early %>%
+  ggplot() +
+  geom_bar(aes(x=Property, y=Log_Count, fill=Property_Color), stat="identity") +
+  scale_fill_identity()
+
+grid.arrange(plot1, plot2, plot3, plot4)
+```
+
+Just as suspected, utilities and railroads are both the most consistent, as well as have the highest max of any properties. Blues, browns, and green (just like before) appear to be the least consistent, although browns and blues do have potential for high early revenue.
+
+Throughout all of these metrics, railroads and utilities seem to be the best properties to invest in early-on and as the game moves forward, while aiming to possess the blues late game (or a mid-value property like oranges, reds, or yellows if necessary) on the basic controller.
+
+Another interesting metric is the amount of times a property is landed on in a game, for this we can look at the event table log and grab the amount of times the property had rent paid out on it to see an estimated cost-effectiveness based on the likelihood a player is to land on the property, and the revenue based on building (both normal and cost-based analysis).
+
+First lets take a peek at the table to see the data being worked with.
+
+```{R}
+event_df %>% glimpse()
+```
+
+Events that are interesting here will be "rent", so we can separate the original dataframe into only rent data, and transform that into counts per game for each property.
+
+```{R}
+rent_data <- event_df[event_df$Action_Type == "rent", ] %>% 
+  group_by(Game_ID, Property) %>%
+  summarize(Rent_Count = n(), .groups = 'drop')
+
+Prop_Col <- rev_full %>%
+  dplyr::select(Property, Property_Color) %>%
+  unique()
+
+rent_data <- rent_data %>% 
+  left_join(Prop_Col, by = "Property")
+
+rent_data %>% glimpse()
+```
+
+Lets look at just 1 game's data first.
+
+```{R}
+rent_data[rent_data$Game_ID == 0, ] %>%
+  ggplot() +
+  geom_bar(aes(x=Property, y=Rent_Count, fill=Property_Color), stat="identity") +
+  scale_fill_identity()
+```
+
+In this particular game, it appears that utilities, yellows, and greens had the most amount of lands in total, however this is just anecdotal data, lets see the full picture below.
+
+```{R}
+rent_data %>%
+  ggplot() +
+  geom_line(aes(x=Game_ID, y=Rent_Count, group=Property, color=Property_Color)) +
+  scale_color_identity()
+```
+
+Graphing as over time data by game seems to be messy and inconclusive, a better view will be to bin the data by count, and display as a histogram to show the distribution of lands. Here is an example below for "Boardwalk".
+
+```{R}
+rent_data[rent_data$Property=="Boardwalk", ] %>%
+  ggplot() +
+  geom_histogram(aes(x=Rent_Count, fill=Property_Color), binwidth = 0.5) +
+  scale_fill_identity()
+```
+
+For boardwalk, the count data appears to closely follow a negative binomial distribution. We can plot for all properties while facet-wrapped for property to get an overall view of all property count distributions
+
+```{R}
+rent_data %>%
+  ggplot() +
+  geom_histogram(aes(x=Rent_Count, fill=Property_Color), binwidth = 0.5) +
+  facet_wrap(~Property) +
+  scale_fill_identity()
+```
+
+As we can see, all properties fairly closely follow this distribution, peaking in generally the same places. We can further show the distribution of lands by property group instead of individual properties below.
+
+```{R}
+rent_data %>%
+  ggplot() +
+  geom_histogram(aes(x=Rent_Count, fill=Property_Color), binwidth = 0.5) +
+  facet_wrap(~Property_Color) +
+  scale_fill_identity()
+```
+
+And we can see that the groups also generally follow this negative binomial distribution as well. 
+
+We can further summarize the count data below, showing the distribution of properties landed on by mean and median.
+
+```{R, message=FALSE}
+prop_count_stats <- rent_data %>%
+  group_by(Property, Property_Color) %>%
+  summarize(Mean = mean(Rent_Count), Median = median(Rent_Count), Variance = var(Rent_Count))
+
+group_count_stats <- rent_data %>%
+  group_by(Property_Color) %>%
+  summarize(Mean = mean(Rent_Count), Median = median(Rent_Count), Variance = var(Rent_Count))
+
+prop_count_stats %>% glimpse()
+```
+
+Looking at both properties individually and as property groups, plotting for mean can visualize which groups are likely to be landed on if rent is to be collected, which can find the most valuable properties by volume.
+
+```{R}
+prop_count_stats %>%
+  ggplot() +
+  geom_bar(aes(x=Property, y=Mean, fill=Property_Color), stat="Identity") +
+  scale_fill_identity()
+```
+
+```{R}
+prop_count_stats %>%
+  ggplot() +
+  geom_bar(aes(x=Property_Color, y=Mean, fill=Property_Color), stat="Identity") +
+  scale_fill_identity()
+```
+
+As apparent from both graphs, the railroads, reds, and oranges have the highest likelihoods of being landed on, while the blues and browns have the lowest by far. 
+
+When scaled by rent below (both with and without houses), we can see the average rent per group expected over any given game by strictly rent collection count (rent will be taken by the average of all 3 properties, for railroads and utilities assume the minimum rent for rent and max for houses (for utilities using a roll of 7))
+```{R}
+plot1 <- group_count_stats %>% 
+  mutate(Rent = c(25, (35+50)/2, 3, (26*2+28)/3, 20/3, 28, (14*2 + 16)/3, 22/3, (18*2+20)/3, (22*2+24)/3)) %>%
+  ggplot() +
+  geom_bar(aes(x=Property_Color, y=Mean*Rent, fill = Property_Color), stat="Identity") +
+  scale_fill_identity()
+
+plot2 <- group_count_stats %>% 
+  mutate(Houses = c(200, (1500+2000)/2, (250+450)/2, (1275*2+1400)/3, (550*2+600)/3, 70, (950*2+1000)/3, (750*2+900)/3, (1050*2+1100)/3, (1150*2+1200)/3)) %>%
+  ggplot() +
+  geom_bar(aes(x=Property_Color, y=Mean*Houses, fill = Property_Color), stat="Identity") +
+  scale_fill_identity()
+
+grid.arrange(plot1, plot2)
+```
+
+Based solely on this information, it would seem like green is the best group of properties, followed by red and yellow, however lets also factor in cost for these results (averaged out as well). For regular rent this is just the average buy costs of the property set, however for the houses list, since it is accounting only for hotels, the cost is the amount to buy the full set, as well as houses on every property to reach those hotels (or for railroads and utilities, just the full set cost).
+
+```{R}
+plot1 <- group_count_stats %>% 
+  mutate(Rent = c(25, (35+50)/2, 3, (26*2+28)/3, 20/3, 28, (14*2 + 16)/3, 22/3, (18*2+20)/3, (22*2+24)/3),
+         Cost = c(200, 750/2, 60, 920/3, 320/3, 150, 560/3, 440/3, 680/3, 800/3)) %>%
+  ggplot() +
+  geom_bar(aes(x=Property_Color, y=Mean*Rent/Cost, fill = Property_Color), stat="Identity") +
+  scale_fill_identity()
+
+plot2 <- group_count_stats %>% 
+  mutate(Houses = c(200, (1500+2000)/2, (250+450)/2, (1275*2+1400)/3, (550*2+600)/3, 70, (950*2+1000)/3, (750*2+900)/3, (1050*2+1100)/3, (1150*2+1200)/3),
+         Cost = c(800, 750 + 200*10, 120 + 50*10, 920 + 200*15, 320 + 50*15, 300, 560 + 100*15, 440 + 100*15, 680 + 150*15, 800 + 150*25)) %>%
+  ggplot() +
+  geom_bar(aes(x=Property_Color, y=Mean*Houses/Cost, fill = Property_Color), stat="Identity") +
+  scale_fill_identity()
+
+grid.arrange(plot1, plot2)
+```
+
+When factored for cost, greens take a huge hit. Interestingly enough this is where low value properties, such as browns and light blues, begin to truly shine as they both have better rent/cost values when accounting for number of times landing on the property, on average, when compared to even the blues. Overall the best property group by far in this metric is the oranges, while the worst are railroads, utilities, and yellows. 
+
+This is of course just taking a snapshot of the averages for these properties across the group set, and in the future a stronger look at the rent/cost for each property may be looked at when delving into stronger AI. 
+
+This concludes the basic AI analysis, as player actions are fairly uninteresting since all the actions are predetermined. A more in-depth report regarding player actions (buying choices, auctions, jail, trading) will be focused on in the future when the AI begins to make decisions impacting these outcomes.
